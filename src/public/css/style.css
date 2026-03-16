@@ -129,6 +129,10 @@ tbody tr:hover { background: var(--bg); }
 .project-item strong { font-size: 0.9rem; }
 .project-item code { font-size: 0.75rem; color: var(--text-muted); word-break: break-all; }
 
+.header-right { display: flex; align-items: center; gap: 12px; }
+.user-name { font-size: 0.85rem; color: var(--text-muted); font-weight: 500; }
+.btn-sm { padding: 6px 12px; font-size: 0.8rem; }
+
 @media (max-width: 480px) {
   .upload-card, .login-card, .admin-card { padding: 1.5rem; }
   main { margin-top: 1.5rem; }

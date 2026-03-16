@@ -21,10 +21,10 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
-  limits: { fileSize: Infinity },
+  limits: { fileSize: 15 * 1024 * 1024 * 1024 }, // 15 Go
   fileFilter: (req, file, cb) => {
-    const allowed = /\.(mp4|mov|avi|mxf|mts|m2ts|mkv|wmv|flv|webm|prores|r3d|braw)$/i;
-    if (allowed.test(file.originalname)) {
+    const allowed = /\.(mp4|mov|avi|mxf|mts|m2ts|mkv|wmv|flv|webm|prores|r3d|braw|mpg|mpeg|m4v|3gp|ts)$/i;
+    if (allowed.test(file.originalname) || file.mimetype.startsWith('video/')) {
       cb(null, true);
     } else {
       cb(new Error('Seuls les fichiers video sont acceptes'));
@@ -93,7 +93,8 @@ router.post('/upload', upload.array('videos', 3), async (req, res) => {
         week,
         filesize: file.size,
         frameio_asset_id: result.id,
-        frameio_link: result.view_url || ''
+        frameio_link: result.view_url || '',
+        uploaded_by: req.session?.user?.name || (req.session?.admin ? 'admin' : null)
       });
     }
 

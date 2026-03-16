@@ -27,6 +27,7 @@
       const res = await fetch('/api/clients');
       if (!res.ok) throw new Error('Erreur serveur');
       const clients = await res.json();
+      clients.sort((a, b) => a.name.localeCompare(b.name, 'fr'));
       clientSelect.innerHTML = '<option value="">Selectionner un client...</option>';
       clients.forEach(c => {
         const opt = document.createElement('option');
@@ -40,14 +41,31 @@
     }
   }
 
-  // ---- Week dropdown: S01-S52 + Youtube ----
+  // ---- Week dropdown: S01-S52 with dates + Youtube ----
+  function getWeekDates(weekNum, year) {
+    // ISO week: Jan 4 is always in week 1
+    const jan4 = new Date(year, 0, 4);
+    const dayOfWeek = jan4.getDay() || 7; // Mon=1..Sun=7
+    const monday = new Date(jan4);
+    monday.setDate(jan4.getDate() - dayOfWeek + 1 + (weekNum - 1) * 7);
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    return { monday, sunday };
+  }
+
+  function formatShortDate(d) {
+    return d.getDate() + '/' + String(d.getMonth() + 1).padStart(2, '0');
+  }
+
   function generateWeeks() {
+    const year = new Date().getFullYear();
     weekSelect.innerHTML = '<option value="">Selectionner une semaine...</option>';
     for (let w = 1; w <= 52; w++) {
       const opt = document.createElement('option');
       const label = 'S' + String(w).padStart(2, '0');
+      const { monday, sunday } = getWeekDates(w, year);
       opt.value = label;
-      opt.textContent = label;
+      opt.textContent = label + '  (' + formatShortDate(monday) + ' — ' + formatShortDate(sunday) + ')';
       weekSelect.appendChild(opt);
     }
     const ytOpt = document.createElement('option');
@@ -229,7 +247,26 @@
     progressFill.style.width = '0%';
   });
 
+  // ---- User info & logout ----
+  async function loadUser() {
+    try {
+      const res = await fetch('/auth/me');
+      if (res.ok) {
+        const data = await res.json();
+        const nameEl = document.getElementById('userName');
+        if (data.user) nameEl.textContent = data.user.name;
+        else if (data.admin) nameEl.textContent = 'Admin';
+      }
+    } catch {}
+  }
+
+  document.getElementById('logoutBtn').addEventListener('click', async () => {
+    await fetch('/auth/logout', { method: 'POST' });
+    window.location.href = '/login';
+  });
+
   // ---- Init ----
+  loadUser();
   loadClients();
   generateWeeks();
 })();

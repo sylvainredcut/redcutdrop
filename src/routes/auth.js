@@ -1,5 +1,6 @@
 const express = require('express');
 const { getAuthorizeUrl, exchangeCodeForTokens, hasRefreshToken } = require('../frameio');
+const { verifyUser } = require('../db');
 const router = express.Router();
 
 // Admin login
@@ -19,6 +20,22 @@ router.post('/login', (req, res) => {
   res.status(401).json({ error: 'Mot de passe incorrect' });
 });
 
+// User (monteur) login
+router.post('/user/login', (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Email et mot de passe requis' });
+  }
+
+  const user = verifyUser(email, password);
+  if (!user) {
+    return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
+  }
+
+  req.session.user = user;
+  res.json({ ok: true, user: { name: user.name, email: user.email } });
+});
+
 router.post('/logout', (req, res) => {
   req.session.destroy(() => {
     res.json({ ok: true });
@@ -27,10 +44,12 @@ router.post('/logout', (req, res) => {
 
 router.get('/me', (req, res) => {
   if (req.session.admin) {
-    res.json({ admin: true });
-  } else {
-    res.status(401).json({ error: 'Non authentifie' });
+    return res.json({ admin: true });
   }
+  if (req.session.user) {
+    return res.json({ user: req.session.user });
+  }
+  res.status(401).json({ error: 'Non authentifie' });
 });
 
 // Adobe IMS OAuth - redirect to Adobe login

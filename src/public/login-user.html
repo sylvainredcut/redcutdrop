@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Upload Redcut — Connexion</title>
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="login-body">
+  <div class="login-container">
+    <div class="login-card">
+      <div class="logo">
+        <img src="/img/logo.png" alt="Redcut" class="logo-img" style="height:40px">
+        <span class="logo-text">Upload Redcut</span>
+      </div>
+      <p class="login-subtitle">Connectez-vous pour envoyer vos videos</p>
+
+      <form id="loginForm">
+        <div class="field">
+          <label for="email">Email</label>
+          <input type="email" id="email" name="email" autocomplete="email" placeholder="monteur@redcut.fr" required>
+        </div>
+        <div class="field">
+          <label for="password">Mot de passe</label>
+          <input type="password" id="password" name="password" autocomplete="current-password" placeholder="Mot de passe" required>
+        </div>
+        <div id="loginError" class="error-msg" style="display:none"></div>
+        <button type="submit" class="btn btn-primary btn-full" id="loginBtn">
+          Se connecter
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('loginBtn');
+      const errEl = document.getElementById('loginError');
+      errEl.style.display = 'none';
+      btn.disabled = true;
+      btn.textContent = 'Connexion...';
+
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+
+      try {
+        const res = await fetch('/auth/user/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          window.location.href = '/';
+        } else {
+          errEl.textContent = data.error || 'Identifiants incorrects';
+          errEl.style.display = 'block';
+        }
+      } catch {
+        errEl.textContent = 'Erreur réseau';
+        errEl.style.display = 'block';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Se connecter';
+      }
+    });
+  </script>
+</body>
+</html>

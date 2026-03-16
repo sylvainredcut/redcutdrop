@@ -54,6 +54,33 @@
       </div>
     </div>
 
+    <!-- Users management -->
+    <div class="admin-card">
+      <h1>Monteurs</h1>
+      <form id="addUserForm" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:1rem">
+        <input type="text" id="newUserName" placeholder="Nom" required style="flex:1; min-width:120px; padding:8px 12px; border:1.5px solid var(--border); border-radius:var(--radius-sm); font-size:0.85rem">
+        <input type="email" id="newUserEmail" placeholder="Email" required style="flex:1; min-width:180px; padding:8px 12px; border:1.5px solid var(--border); border-radius:var(--radius-sm); font-size:0.85rem">
+        <input type="password" id="newUserPassword" placeholder="Mot de passe (6+ car.)" required minlength="6" style="flex:1; min-width:150px; padding:8px 12px; border:1.5px solid var(--border); border-radius:var(--radius-sm); font-size:0.85rem">
+        <button type="submit" class="btn btn-primary btn-sm">Ajouter</button>
+      </form>
+      <div id="userError" class="error-msg" style="display:none"></div>
+      <div id="usersLoading" class="loading-text">Chargement...</div>
+      <div id="usersEmpty" class="empty-text" style="display:none">Aucun monteur enregistre.</div>
+      <div class="table-wrap">
+        <table id="usersTable" style="display:none">
+          <thead>
+            <tr>
+              <th>Nom</th>
+              <th>Email</th>
+              <th>Cree le</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="usersBody"></tbody>
+        </table>
+      </div>
+    </div>
+
     <!-- Config -->
     <div class="admin-card">
       <h1>Configuration</h1>

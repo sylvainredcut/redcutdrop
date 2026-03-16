@@ -1,5 +1,5 @@
 const express = require('express');
-const { getRecentUploads } = require('../db');
+const { getRecentUploads, createUser, listUsers, deleteUser, getUserByEmail } = require('../db');
 const { listClients } = require('../frameio');
 
 const router = express.Router();
@@ -22,6 +22,43 @@ router.get('/projects', async (req, res) => {
     res.status(500).json({
       error: err.response?.data?.message || err.message || 'Erreur Frame.io'
     });
+  }
+});
+
+// --- User management ---
+router.get('/users', (req, res) => {
+  try {
+    res.json(listUsers());
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/users', (req, res) => {
+  const { email, password, name } = req.body;
+  if (!email || !password || !name) {
+    return res.status(400).json({ error: 'Email, mot de passe et nom requis' });
+  }
+  if (password.length < 6) {
+    return res.status(400).json({ error: 'Mot de passe : 6 caractères minimum' });
+  }
+  if (getUserByEmail(email)) {
+    return res.status(409).json({ error: 'Cet email existe déjà' });
+  }
+  try {
+    createUser(email, password, name);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/users/:id', (req, res) => {
+  try {
+    deleteUser(req.params.id);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 

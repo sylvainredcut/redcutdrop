@@ -99,8 +99,80 @@
     window.location.href = '/admin/login';
   });
 
+  // ---- Users management ----
+  const usersTable = document.getElementById('usersTable');
+  const usersBody = document.getElementById('usersBody');
+  const usersLoading = document.getElementById('usersLoading');
+  const usersEmpty = document.getElementById('usersEmpty');
+  const addUserForm = document.getElementById('addUserForm');
+  const userError = document.getElementById('userError');
+
+  async function loadUsers() {
+    try {
+      const res = await fetch('/api/admin/users', { headers: { Accept: 'application/json' } });
+      if (!res.ok) throw new Error();
+      const users = await res.json();
+      usersLoading.style.display = 'none';
+      usersBody.innerHTML = '';
+
+      if (!users.length) { usersEmpty.style.display = 'block'; usersTable.style.display = 'none'; return; }
+
+      usersEmpty.style.display = 'none';
+      usersTable.style.display = 'table';
+      users.forEach(u => {
+        const tr = document.createElement('tr');
+        tr.innerHTML =
+          '<td>' + escapeHtml(u.name) + '</td>' +
+          '<td>' + escapeHtml(u.email) + '</td>' +
+          '<td>' + formatDate(u.created_at) + '</td>' +
+          '<td><button class="btn btn-ghost btn-sm delete-user-btn" data-id="' + u.id + '">Supprimer</button></td>';
+        usersBody.appendChild(tr);
+      });
+
+      usersBody.querySelectorAll('.delete-user-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if (!confirm('Supprimer ce monteur ?')) return;
+          try {
+            await fetch('/api/admin/users/' + btn.dataset.id, { method: 'DELETE' });
+            loadUsers();
+          } catch {}
+        });
+      });
+    } catch {
+      usersLoading.textContent = 'Erreur de chargement';
+    }
+  }
+
+  addUserForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    userError.style.display = 'none';
+    const name = document.getElementById('newUserName').value.trim();
+    const email = document.getElementById('newUserEmail').value.trim();
+    const password = document.getElementById('newUserPassword').value;
+
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        userError.textContent = data.error || 'Erreur';
+        userError.style.display = 'block';
+        return;
+      }
+      addUserForm.reset();
+      loadUsers();
+    } catch {
+      userError.textContent = 'Erreur réseau';
+      userError.style.display = 'block';
+    }
+  });
+
   checkAdobeStatus();
   loadUploads();
+  loadUsers();
   loadProjects();
   loadConfig();
 })();
