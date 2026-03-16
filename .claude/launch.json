@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Redcut Drop (dev)",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["nodemon", "src/app.js"],
+      "port": 3000
+    },
+    {
+      "name": "Redcut Drop (prod)",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["src/app.js"],
+      "port": 3000
+    }
+  ]
+}

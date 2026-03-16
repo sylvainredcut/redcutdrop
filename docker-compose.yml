@@ -1,0 +1,24 @@
+services:
+  redcut-drop:
+    build: .
+    container_name: redcut-drop
+    expose:
+      - "3000"
+    env_file:
+      - .env
+    volumes:
+      - uploads:/app/uploads
+      - dbdata:/app/data
+      - tokendata:/app/.token-vol
+    restart: unless-stopped
+    networks:
+      - web
+
+volumes:
+  uploads:
+  dbdata:
+  tokendata:
+
+networks:
+  web:
+    external: true

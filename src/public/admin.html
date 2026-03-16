@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Redcut Drop — Admin</title>
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <div class="logo">
+        <img src="/img/logo.png" alt="Redcut" class="logo-img" style="height:40px">
+        <span class="logo-text">Redcut Drop</span>
+        <span class="badge">Admin</span>
+      </div>
+      <button class="btn btn-ghost" id="logoutBtn">Deconnexion</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- Adobe connection status -->
+    <div class="admin-card" id="adobeCard">
+      <h1>Connexion Adobe / Frame.io</h1>
+      <div id="adobeStatus" class="loading-text">Verification...</div>
+      <div id="adobeActions" style="display:none; margin-top:1rem">
+        <a href="/auth/adobe" class="btn btn-primary">Connecter Adobe / Frame.io</a>
+      </div>
+      <div id="adobeConnected" style="display:none; margin-top:0.5rem" class="success-inline">
+        Connecte a Adobe IMS
+      </div>
+    </div>
+
+    <!-- Recent uploads -->
+    <div class="admin-card">
+      <h1>Uploads recents</h1>
+      <div id="uploadsLoading" class="loading-text">Chargement...</div>
+      <div id="uploadsEmpty" class="empty-text" style="display:none">Aucun upload pour le moment.</div>
+      <div class="table-wrap">
+        <table id="uploadsTable" style="display:none">
+          <thead>
+            <tr>
+              <th>Fichier</th>
+              <th>Client</th>
+              <th>Semaine</th>
+              <th>Taille</th>
+              <th>Date</th>
+              <th>Lien</th>
+            </tr>
+          </thead>
+          <tbody id="uploadsBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Config -->
+    <div class="admin-card">
+      <h1>Configuration</h1>
+      <div class="config-grid">
+        <div class="config-item">
+          <span class="config-label">Account ID</span>
+          <code class="config-value" id="cfgAccountId">--</code>
+        </div>
+        <div class="config-item">
+          <span class="config-label">Discord Webhook</span>
+          <code class="config-value" id="cfgDiscord">--</code>
+        </div>
+      </div>
+      <div style="margin-top:1.5rem">
+        <h2 class="section-title">Projets Frame.io (clients)</h2>
+        <div id="projectsLoading" class="loading-text">Chargement...</div>
+        <div id="projectsList"></div>
+      </div>
+    </div>
+  </main>
+
+  <script src="/js/admin.js"></script>
+</body>
+</html>

@@ -1,0 +1,3 @@
+upload.redcut.fr {
+  reverse_proxy redcut-drop:3000
+}
