@@ -211,17 +211,18 @@ async function uploadFile(filePath, fileName, fileSize, mimeType, projectId, wee
     throw new Error('No upload URLs returned from Frame.io');
   }
 
-  const chunkSize = Math.ceil(fileSize / uploadUrls.length);
-
-  for (let i = 0; i < uploadUrls.length; i++) {
-    const start = i * chunkSize;
-    const end = Math.min(start + chunkSize, fileSize);
+  for (const part of uploadUrls) {
+    const url = typeof part === 'string' ? part : part.url;
+    const partSize = typeof part === 'string' ? fileSize : part.size;
+    const start = typeof part === 'string' ? 0 : (uploadUrls.indexOf(part) * partSize);
+    const end = Math.min(start + partSize, fileSize);
     const chunk = fs.createReadStream(filePath, { start, end: end - 1 });
 
-    await axios.put(uploadUrls[i], chunk, {
+    await axios.put(url, chunk, {
       headers: {
         'Content-Type': mimeType,
-        'Content-Length': end - start
+        'Content-Length': end - start,
+        'x-amz-acl': 'private'
       },
       maxBodyLength: Infinity,
       maxContentLength: Infinity

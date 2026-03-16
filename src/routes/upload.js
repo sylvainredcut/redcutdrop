@@ -14,7 +14,8 @@ const storage = multer.diskStorage({
   },
   filename: (req, file, cb) => {
     const unique = `${Date.now()}-${Math.round(Math.random() * 1e6)}`;
-    cb(null, `${unique}-${file.originalname}`);
+    const safeName = file.originalname.normalize('NFC');
+    cb(null, `${unique}-${safeName}`);
   }
 });
 
