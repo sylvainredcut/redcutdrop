@@ -72,12 +72,29 @@
             <tr>
               <th>Nom</th>
               <th>Email</th>
+              <th>Clients</th>
               <th>Cree le</th>
               <th></th>
             </tr>
           </thead>
           <tbody id="usersBody"></tbody>
         </table>
+      </div>
+    </div>
+
+    <!-- Access modal -->
+    <div id="accessModal" class="modal-overlay" style="display:none">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 id="accessModalTitle">Acces client</h2>
+          <button type="button" class="modal-close" id="closeAccessModal">&times;</button>
+        </div>
+        <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:1rem">Cochez les clients auxquels ce monteur a acces :</p>
+        <div id="accessClientsList" style="max-height:400px; overflow-y:auto; margin-bottom:1rem"></div>
+        <div style="display:flex; gap:8px; justify-content:flex-end">
+          <button type="button" class="btn btn-ghost btn-sm" id="cancelAccessBtn">Annuler</button>
+          <button type="button" class="btn btn-primary btn-sm" id="saveAccessBtn">Enregistrer</button>
+        </div>
       </div>
     </div>
 

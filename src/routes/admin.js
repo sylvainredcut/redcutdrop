@@ -1,5 +1,5 @@
 const express = require('express');
-const { getRecentUploads, createUser, listUsers, deleteUser, getUserByEmail } = require('../db');
+const { getRecentUploads, createUser, listUsers, deleteUser, getUserByEmail, getUserClients, setUserClients, getAllUserClients } = require('../db');
 const { listClients } = require('../frameio');
 
 const router = express.Router();
@@ -57,6 +57,37 @@ router.delete('/users/:id', (req, res) => {
   try {
     deleteUser(req.params.id);
     res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- User-client access management ---
+router.get('/users/:id/clients', (req, res) => {
+  try {
+    const clients = getUserClients(parseInt(req.params.id));
+    res.json(clients);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/users/:id/clients', (req, res) => {
+  const { clients } = req.body; // [{id, name}, ...]
+  if (!Array.isArray(clients)) {
+    return res.status(400).json({ error: 'clients doit être un tableau' });
+  }
+  try {
+    setUserClients(parseInt(req.params.id), clients);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/users-clients', (req, res) => {
+  try {
+    res.json(getAllUserClients());
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

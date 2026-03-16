@@ -3,7 +3,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { uploadFile, createShareLink, listClients, listProjectFolders } = require('../frameio');
-const { recordUpload } = require('../db');
+const { recordUpload, getUserClients } = require('../db');
 const { sendDiscordNotification } = require('../discord');
 
 const router = express.Router();
@@ -32,11 +32,28 @@ const upload = multer({
   }
 });
 
-// Clients = Frame.io projects
+// Clients = Frame.io projects (filtered by user access)
 router.get('/clients', async (req, res) => {
   try {
-    const clients = await listClients();
-    res.json(clients);
+    const allClients = await listClients();
+
+    // Admin sees all clients
+    if (req.session?.admin) {
+      return res.json(allClients);
+    }
+
+    // Monteur: filter by allowed clients
+    if (req.session?.user?.id) {
+      const allowed = getUserClients(req.session.user.id);
+      if (allowed.length === 0) {
+        // No restrictions set = no access (must be configured by admin)
+        return res.json([]);
+      }
+      const allowedIds = new Set(allowed.map(a => a.client_project_id));
+      return res.json(allClients.filter(c => allowedIds.has(c.id)));
+    }
+
+    res.json([]);
   } catch (err) {
     console.error('Clients error:', err.response?.data || err.message);
     res.status(500).json({ error: 'Impossible de charger les clients depuis Frame.io' });

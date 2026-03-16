@@ -10,6 +10,18 @@
   const adobeActions = document.getElementById('adobeActions');
   const adobeConnected = document.getElementById('adobeConnected');
 
+  // Access modal elements
+  const accessModal = document.getElementById('accessModal');
+  const accessModalTitle = document.getElementById('accessModalTitle');
+  const accessClientsList = document.getElementById('accessClientsList');
+  const closeAccessModal = document.getElementById('closeAccessModal');
+  const cancelAccessBtn = document.getElementById('cancelAccessBtn');
+  const saveAccessBtn = document.getElementById('saveAccessBtn');
+
+  let allProjects = []; // cached Frame.io projects
+  let allUserClients = {}; // userId -> Set of projectIds
+  let currentEditUserId = null;
+
   function formatSize(bytes) {
     if (!bytes) return '--';
     if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' Ko';
@@ -74,6 +86,7 @@
       const res = await fetch('/api/admin/projects', { headers: { Accept: 'application/json' } });
       if (!res.ok) throw new Error();
       const projects = await res.json();
+      allProjects = projects;
       projectsLoading.style.display = 'none';
 
       if (!projects.length) { projectsList.innerHTML = '<p class="empty-text">Aucun projet trouve.</p>'; return; }
@@ -87,6 +100,30 @@
     } catch {
       projectsLoading.textContent = 'Erreur (verifiez la connexion Adobe)';
     }
+  }
+
+  async function loadAllUserClients() {
+    try {
+      const res = await fetch('/api/admin/users-clients', { headers: { Accept: 'application/json' } });
+      if (!res.ok) return;
+      const data = await res.json();
+      allUserClients = {};
+      data.forEach(uc => {
+        if (!allUserClients[uc.user_id]) allUserClients[uc.user_id] = new Set();
+        allUserClients[uc.user_id].add(uc.client_project_id);
+      });
+    } catch {}
+  }
+
+  function getAccessBadge(userId) {
+    const userSet = allUserClients[userId];
+    if (!userSet || userSet.size === 0) {
+      return '<span class="access-badge none">Aucun</span>';
+    }
+    if (allProjects.length > 0 && userSet.size >= allProjects.length) {
+      return '<span class="access-badge all">Tous (' + userSet.size + ')</span>';
+    }
+    return '<span class="access-badge partial">' + userSet.size + ' client' + (userSet.size > 1 ? 's' : '') + '</span>';
   }
 
   function loadConfig() {
@@ -124,8 +161,12 @@
         tr.innerHTML =
           '<td>' + escapeHtml(u.name) + '</td>' +
           '<td>' + escapeHtml(u.email) + '</td>' +
+          '<td>' + getAccessBadge(u.id) + '</td>' +
           '<td>' + formatDate(u.created_at) + '</td>' +
-          '<td><button class="btn btn-ghost btn-sm delete-user-btn" data-id="' + u.id + '">Supprimer</button></td>';
+          '<td style="white-space:nowrap">' +
+            '<button class="btn btn-outline btn-sm access-btn" data-id="' + u.id + '" data-name="' + escapeHtml(u.name) + '" style="margin-right:4px">Acces</button>' +
+            '<button class="btn btn-ghost btn-sm delete-user-btn" data-id="' + u.id + '">Supprimer</button>' +
+          '</td>';
         usersBody.appendChild(tr);
       });
 
@@ -134,14 +175,113 @@
           if (!confirm('Supprimer ce monteur ?')) return;
           try {
             await fetch('/api/admin/users/' + btn.dataset.id, { method: 'DELETE' });
+            await loadAllUserClients();
             loadUsers();
           } catch {}
+        });
+      });
+
+      usersBody.querySelectorAll('.access-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          openAccessModal(parseInt(btn.dataset.id), btn.dataset.name);
         });
       });
     } catch {
       usersLoading.textContent = 'Erreur de chargement';
     }
   }
+
+  // ---- Access modal ----
+  async function openAccessModal(userId, userName) {
+    currentEditUserId = userId;
+    accessModalTitle.textContent = 'Acces — ' + userName;
+
+    // Get current user's clients
+    let userClientIds = new Set();
+    try {
+      const res = await fetch('/api/admin/users/' + userId + '/clients');
+      if (res.ok) {
+        const data = await res.json();
+        data.forEach(c => userClientIds.add(c.client_project_id));
+      }
+    } catch {}
+
+    // Build checkbox list
+    const sorted = [...allProjects].sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+    accessClientsList.innerHTML = '';
+
+    if (sorted.length === 0) {
+      accessClientsList.innerHTML = '<p class="empty-text">Aucun projet Frame.io disponible. Verifiez la connexion Adobe.</p>';
+      accessModal.style.display = 'flex';
+      return;
+    }
+
+    // Select all / none
+    const controls = document.createElement('div');
+    controls.style.cssText = 'display:flex; gap:12px; margin-bottom:8px; padding-bottom:8px; border-bottom:1px solid var(--border);';
+    controls.innerHTML = '<button type="button" class="btn btn-ghost btn-sm" id="selectAllClients">Tout selectionner</button>' +
+                         '<button type="button" class="btn btn-ghost btn-sm" id="selectNoneClients">Tout deselectionner</button>';
+    accessClientsList.appendChild(controls);
+
+    sorted.forEach(p => {
+      const label = document.createElement('label');
+      label.className = 'client-checkbox';
+      label.innerHTML = '<input type="checkbox" value="' + escapeHtml(p.id) + '" data-name="' + escapeHtml(p.name) + '"' +
+                        (userClientIds.has(p.id) ? ' checked' : '') + '>' +
+                        '<span>' + escapeHtml(p.name) + '</span>';
+      accessClientsList.appendChild(label);
+    });
+
+    document.getElementById('selectAllClients').addEventListener('click', () => {
+      accessClientsList.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = true);
+    });
+    document.getElementById('selectNoneClients').addEventListener('click', () => {
+      accessClientsList.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = false);
+    });
+
+    accessModal.style.display = 'flex';
+  }
+
+  function closeModal() {
+    accessModal.style.display = 'none';
+    currentEditUserId = null;
+  }
+
+  closeAccessModal.addEventListener('click', closeModal);
+  cancelAccessBtn.addEventListener('click', closeModal);
+  accessModal.addEventListener('click', (e) => {
+    if (e.target === accessModal) closeModal();
+  });
+
+  saveAccessBtn.addEventListener('click', async () => {
+    if (!currentEditUserId) return;
+
+    const checkboxes = accessClientsList.querySelectorAll('input[type=checkbox]:checked');
+    const clients = Array.from(checkboxes).map(cb => ({
+      id: cb.value,
+      name: cb.dataset.name
+    }));
+
+    saveAccessBtn.disabled = true;
+    saveAccessBtn.textContent = 'Enregistrement...';
+
+    try {
+      const res = await fetch('/api/admin/users/' + currentEditUserId + '/clients', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clients })
+      });
+      if (!res.ok) throw new Error();
+      await loadAllUserClients();
+      loadUsers();
+      closeModal();
+    } catch {
+      alert('Erreur lors de l\'enregistrement');
+    } finally {
+      saveAccessBtn.disabled = false;
+      saveAccessBtn.textContent = 'Enregistrer';
+    }
+  });
 
   addUserForm.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -170,9 +310,15 @@
     }
   });
 
-  checkAdobeStatus();
-  loadUploads();
-  loadUsers();
-  loadProjects();
-  loadConfig();
+  // ---- Init ----
+  async function init() {
+    checkAdobeStatus();
+    loadUploads();
+    loadConfig();
+    await loadProjects(); // need projects first for access badges
+    await loadAllUserClients();
+    loadUsers();
+  }
+
+  init();
 })();

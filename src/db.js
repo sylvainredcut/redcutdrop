@@ -38,6 +38,16 @@ db.exec(`
 // Add uploaded_by column if missing (migration)
 try { db.exec('ALTER TABLE uploads ADD COLUMN uploaded_by TEXT'); } catch {}
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS user_clients (
+    user_id INTEGER NOT NULL,
+    client_project_id TEXT NOT NULL,
+    client_name TEXT NOT NULL,
+    PRIMARY KEY (user_id, client_project_id),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  )
+`);
+
 function recordUpload({ filename, client, week, filesize, frameio_asset_id, frameio_link, uploaded_by }) {
   const stmt = db.prepare(`
     INSERT INTO uploads (filename, client, week, filesize, frameio_asset_id, frameio_link, uploaded_by)
@@ -75,4 +85,25 @@ function deleteUser(id) {
   return db.prepare('DELETE FROM users WHERE id = ?').run(id);
 }
 
-module.exports = { recordUpload, getRecentUploads, createUser, getUserByEmail, verifyUser, listUsers, deleteUser };
+// --- User-client access management ---
+function getUserClients(userId) {
+  return db.prepare('SELECT client_project_id, client_name FROM user_clients WHERE user_id = ?').all(userId);
+}
+
+function setUserClients(userId, clients) {
+  const del = db.prepare('DELETE FROM user_clients WHERE user_id = ?');
+  const ins = db.prepare('INSERT INTO user_clients (user_id, client_project_id, client_name) VALUES (?, ?, ?)');
+  const txn = db.transaction((uid, cls) => {
+    del.run(uid);
+    for (const c of cls) {
+      ins.run(uid, c.id, c.name);
+    }
+  });
+  txn(userId, clients);
+}
+
+function getAllUserClients() {
+  return db.prepare('SELECT user_id, client_project_id FROM user_clients').all();
+}
+
+module.exports = { recordUpload, getRecentUploads, createUser, getUserByEmail, verifyUser, listUsers, deleteUser, getUserClients, setUserClients, getAllUserClients };
