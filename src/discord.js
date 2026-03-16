@@ -1,13 +1,13 @@
 const axios = require('axios');
 
-async function sendDiscordNotification({ filename, client, week, filesize, link }) {
+async function sendDiscordNotification({ filename, client, week, filesize, link, comment }) {
   const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
   if (!webhookUrl) return;
 
   const sizeMB = filesize ? (filesize / 1048576).toFixed(1) + ' Mo' : 'N/A';
 
   const embed = {
-    title: 'Nouvel upload sur Frame.io',
+    title: comment || 'Nouvel upload sur Frame.io',
     color: 0xe63946,
     fields: [
       { name: 'Fichier', value: filename, inline: false },

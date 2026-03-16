@@ -62,7 +62,7 @@ router.post('/upload', upload.array('videos', 3), async (req, res) => {
     return res.status(400).json({ error: 'Aucun fichier envoye' });
   }
 
-  const { projectId, clientName, week } = req.body;
+  const { projectId, clientName, week, comment } = req.body;
 
   if (!projectId || !clientName || !week) {
     files.forEach(f => { try { fs.unlinkSync(f.path); } catch {} });
@@ -110,7 +110,8 @@ router.post('/upload', upload.array('videos', 3), async (req, res) => {
       client: clientName,
       week,
       filesize: files.reduce((sum, f) => sum + f.size, 0),
-      link: shareLink
+      link: shareLink,
+      comment: comment || ''
     });
 
     res.json({

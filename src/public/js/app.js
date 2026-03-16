@@ -16,6 +16,7 @@
   const successMsg = document.getElementById('successMsg');
   const shareLink = document.getElementById('shareLink');
   const resetBtn = document.getElementById('resetBtn');
+  const commentInput = document.getElementById('commentInput');
 
   const MAX_FILES = 3;
   let selectedFiles = [];
@@ -171,6 +172,7 @@
     formData.append('projectId', projectId);
     formData.append('clientName', clientName);
     formData.append('week', week);
+    formData.append('comment', commentInput.value.trim());
 
     try {
       const xhr = new XMLHttpRequest();
@@ -222,6 +224,7 @@
     successPanel.style.display = 'none';
     uploadForm.style.display = 'block';
     clearFiles();
+    commentInput.value = '';
     uploadBtn.textContent = 'Envoyer vers Frame.io';
     progressFill.style.width = '0%';
   });
