@@ -72,7 +72,7 @@ router.post('/upload', upload.single('video'), async (req, res) => {
   try {
     const result = await uploadFile(
       file.path,
-      file.originalname,
+      file.originalname.normalize('NFC'),
       file.size,
       file.mimetype,
       projectId,
