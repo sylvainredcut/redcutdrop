@@ -5,7 +5,7 @@ const path = require('path');
 const ADOBE_IMS_URL = 'https://ims-na1.adobelogin.com/ims/token/v3';
 const ADOBE_AUTH_URL = 'https://ims-na1.adobelogin.com/ims/authorize/v2';
 const FRAMEIO_API = 'https://api.frame.io/v4';
-const TOKEN_FILE = path.join(__dirname, '..', '.token');
+const TOKEN_FILE = path.join(__dirname, '..', '.token-vol', 'token.json');
 const SCOPES = 'email,profile,additional_info.roles,offline_access,openid';
 
 let cachedToken = null;
