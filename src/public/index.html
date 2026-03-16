@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Redcut Drop — Upload</title>
+  <title>Upload Redcut</title>
   <link rel="icon" type="image/png" href="/favicon.png">
   <link rel="stylesheet" href="/css/style.css">
 </head>
@@ -12,7 +12,7 @@
     <div class="header-inner">
       <div class="logo">
         <img src="/img/logo.png" alt="Redcut" class="logo-img" style="height:40px">
-        <span class="logo-text">Redcut Drop</span>
+        <span class="logo-text">Upload Redcut</span>
       </div>
     </div>
   </header>
@@ -20,7 +20,7 @@
   <main>
     <div class="upload-card">
       <h1>Envoyer une video</h1>
-      <p class="subtitle">La video sera uploadee automatiquement vers Frame.io dans le dossier client correspondant.</p>
+      <p class="subtitle">La video sera upload automatiquement vers Frame.io dans le dossier client correspondant. Rendez-vous sur Discord Redcut pour voir vos retours.</p>
 
       <form id="uploadForm">
         <div class="field">
@@ -31,36 +31,26 @@
         </div>
 
         <div class="field">
-          <label for="weekSelect">Semaine <a href="#" class="link-btn" id="showAllWeeks">Toutes les semaines</a></label>
+          <label for="weekSelect">Semaine</label>
           <select id="weekSelect" required>
             <option value="">Selectionner une semaine...</option>
           </select>
         </div>
 
         <div class="field">
-          <label>Fichier video</label>
+          <label>Fichiers video <span class="hint">(3 max)</span></label>
           <div class="dropzone" id="dropzone">
-            <input type="file" id="fileInput" accept="video/*,.mxf,.mts,.m2ts,.prores,.r3d,.braw" hidden>
+            <input type="file" id="fileInput" accept="video/*,.mxf,.mts,.m2ts,.prores,.r3d,.braw" multiple hidden>
             <div class="dropzone-inner" id="dropzoneInner">
               <svg class="drop-icon" width="48" height="48" viewBox="0 0 48 48" fill="none">
                 <path d="M24 8V32M24 8L16 16M24 8L32 16" stroke="#e63946" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
                 <path d="M8 36H40" stroke="#e63946" stroke-width="2.5" stroke-linecap="round"/>
               </svg>
-              <p class="drop-text">Glissez votre video ici</p>
+              <p class="drop-text">Glissez vos videos ici</p>
               <p class="drop-sub">ou <button type="button" class="link-btn" id="browseBtn">parcourir</button></p>
               <p class="drop-formats">MP4, MOV, MXF, ProRes, R3D, BRAW...</p>
             </div>
-            <div class="file-selected" id="fileSelected" style="display:none">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="#e63946" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                <polyline points="14 2 14 8 20 8" stroke="#e63946" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-              <div>
-                <p id="fileName" class="file-name"></p>
-                <p id="fileSize" class="file-size"></p>
-              </div>
-              <button type="button" class="remove-btn" id="removeFile">x</button>
-            </div>
+            <div id="fileList" class="file-list"></div>
           </div>
         </div>
 
@@ -85,7 +75,7 @@
         </svg>
         <h2>Upload reussi !</h2>
         <p id="successMsg"></p>
-        <a id="frameioLink" class="btn btn-outline" href="#" target="_blank">Voir sur Frame.io</a>
+        <a id="shareLink" class="btn btn-outline" href="#" target="_blank">Voir et commenter sur Frame.io</a>
         <button class="btn btn-ghost" id="resetBtn">Nouvel upload</button>
       </div>
     </div>

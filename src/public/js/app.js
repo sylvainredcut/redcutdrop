@@ -1,14 +1,10 @@
 (function () {
   const clientSelect = document.getElementById('clientSelect');
   const weekSelect = document.getElementById('weekSelect');
-  const showAllWeeksBtn = document.getElementById('showAllWeeks');
   const fileInput = document.getElementById('fileInput');
   const dropzone = document.getElementById('dropzone');
   const dropzoneInner = document.getElementById('dropzoneInner');
-  const fileSelected = document.getElementById('fileSelected');
-  const fileName = document.getElementById('fileName');
-  const fileSize = document.getElementById('fileSize');
-  const removeFile = document.getElementById('removeFile');
+  const fileList = document.getElementById('fileList');
   const browseBtn = document.getElementById('browseBtn');
   const uploadForm = document.getElementById('uploadForm');
   const uploadBtn = document.getElementById('uploadBtn');
@@ -18,11 +14,11 @@
   const uploadError = document.getElementById('uploadError');
   const successPanel = document.getElementById('successPanel');
   const successMsg = document.getElementById('successMsg');
-  const frameioLink = document.getElementById('frameioLink');
+  const shareLink = document.getElementById('shareLink');
   const resetBtn = document.getElementById('resetBtn');
 
-  let selectedFile = null;
-  let allWeeksVisible = false;
+  const MAX_FILES = 3;
+  let selectedFiles = [];
 
   // ---- Load clients (= Frame.io projects) ----
   async function loadClients() {
@@ -43,46 +39,21 @@
     }
   }
 
-  // ---- Week dropdown: S11-S20 by default, expandable to S01-S52 + Youtube ----
-  function generateWeeks(showAll) {
-    const currentValue = weekSelect.value;
+  // ---- Week dropdown: S01-S52 + Youtube ----
+  function generateWeeks() {
     weekSelect.innerHTML = '<option value="">Selectionner une semaine...</option>';
-
-    const start = showAll ? 1 : 11;
-    const end = showAll ? 52 : 20;
-
-    for (let w = start; w <= end; w++) {
+    for (let w = 1; w <= 52; w++) {
       const opt = document.createElement('option');
       const label = 'S' + String(w).padStart(2, '0');
       opt.value = label;
       opt.textContent = label;
       weekSelect.appendChild(opt);
     }
-
-    // Youtube option
     const ytOpt = document.createElement('option');
     ytOpt.value = 'Youtube';
     ytOpt.textContent = 'Youtube';
     weekSelect.appendChild(ytOpt);
-
-    // Restore selection if still in range
-    if (currentValue) {
-      for (let i = 0; i < weekSelect.options.length; i++) {
-        if (weekSelect.options[i].value === currentValue) {
-          weekSelect.options[i].selected = true;
-          break;
-        }
-      }
-    }
-
-    showAllWeeksBtn.textContent = showAll ? 'Semaines courantes' : 'Toutes les semaines';
-    allWeeksVisible = showAll;
   }
-
-  showAllWeeksBtn.addEventListener('click', (e) => {
-    e.preventDefault();
-    generateWeeks(!allWeeksVisible);
-  });
 
   // ---- File handling ----
   function formatFileSize(bytes) {
@@ -92,25 +63,59 @@
     return (bytes / 1073741824).toFixed(2) + ' Go';
   }
 
-  function selectFile(file) {
-    selectedFile = file;
-    fileName.textContent = file.name;
-    fileSize.textContent = formatFileSize(file.size);
+  function renderFileList() {
+    fileList.innerHTML = '';
+    if (selectedFiles.length === 0) {
+      dropzoneInner.style.display = 'flex';
+      return;
+    }
     dropzoneInner.style.display = 'none';
-    fileSelected.style.display = 'flex';
+    selectedFiles.forEach((file, idx) => {
+      const row = document.createElement('div');
+      row.className = 'file-selected';
+      row.innerHTML = `
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="#e63946" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <polyline points="14 2 14 8 20 8" stroke="#e63946" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <div>
+          <p class="file-name">${file.name}</p>
+          <p class="file-size">${formatFileSize(file.size)}</p>
+        </div>
+        <button type="button" class="remove-btn" data-idx="${idx}">x</button>
+      `;
+      fileList.appendChild(row);
+    });
+    fileList.querySelectorAll('.remove-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        selectedFiles.splice(parseInt(btn.dataset.idx), 1);
+        renderFileList();
+        updateUploadBtn();
+      });
+    });
+  }
+
+  function addFiles(newFiles) {
+    for (const file of newFiles) {
+      if (selectedFiles.length >= MAX_FILES) break;
+      if (!selectedFiles.some(f => f.name === file.name && f.size === file.size)) {
+        selectedFiles.push(file);
+      }
+    }
+    renderFileList();
     updateUploadBtn();
   }
 
-  function clearFile() {
-    selectedFile = null;
+  function clearFiles() {
+    selectedFiles = [];
     fileInput.value = '';
-    dropzoneInner.style.display = 'flex';
-    fileSelected.style.display = 'none';
+    renderFileList();
     updateUploadBtn();
   }
 
   function updateUploadBtn() {
-    uploadBtn.disabled = !(selectedFile && clientSelect.value && weekSelect.value);
+    uploadBtn.disabled = !(selectedFiles.length > 0 && clientSelect.value && weekSelect.value);
   }
 
   browseBtn.addEventListener('click', () => fileInput.click());
@@ -121,12 +126,7 @@
   });
 
   fileInput.addEventListener('change', () => {
-    if (fileInput.files[0]) selectFile(fileInput.files[0]);
-  });
-
-  removeFile.addEventListener('click', (e) => {
-    e.stopPropagation();
-    clearFile();
+    if (fileInput.files.length) addFiles(fileInput.files);
   });
 
   clientSelect.addEventListener('change', updateUploadBtn);
@@ -146,14 +146,13 @@
     });
   });
   dropzone.addEventListener('drop', (e) => {
-    const file = e.dataTransfer.files[0];
-    if (file) selectFile(file);
+    if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
   });
 
   // ---- Upload ----
   uploadForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    if (!selectedFile) return;
+    if (selectedFiles.length === 0) return;
 
     const projectId = clientSelect.value;
     const selectedOption = clientSelect.options[clientSelect.selectedIndex];
@@ -168,7 +167,7 @@
     progressText.textContent = 'Envoi en cours...';
 
     const formData = new FormData();
-    formData.append('video', selectedFile);
+    selectedFiles.forEach(f => formData.append('videos', f));
     formData.append('projectId', projectId);
     formData.append('clientName', clientName);
     formData.append('week', week);
@@ -204,8 +203,9 @@
 
       progressSection.style.display = 'none';
       uploadForm.style.display = 'none';
-      successMsg.textContent = result.asset.name + ' a ete uploade avec succes.';
-      frameioLink.href = result.asset.link;
+      const names = result.assets.map(a => a.name).join(', ');
+      successMsg.textContent = names + (result.assets.length > 1 ? ' ont ete uploades avec succes.' : ' a ete uploade avec succes.');
+      shareLink.href = result.shareLink;
       successPanel.style.display = 'flex';
 
     } catch (err) {
@@ -221,12 +221,12 @@
   resetBtn.addEventListener('click', () => {
     successPanel.style.display = 'none';
     uploadForm.style.display = 'block';
-    clearFile();
+    clearFiles();
     uploadBtn.textContent = 'Envoyer vers Frame.io';
     progressFill.style.width = '0%';
   });
 
   // ---- Init ----
   loadClients();
-  generateWeeks(false);
+  generateWeeks();
 })();

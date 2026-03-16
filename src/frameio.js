@@ -234,8 +234,31 @@ async function uploadFile(filePath, fileName, fileSize, mimeType, projectId, wee
   return {
     id: asset.id,
     name: asset.name,
-    link: asset.view_url || `https://app.frame.io/player/${asset.id}`
+    project_id: asset.project_id,
+    view_url: asset.view_url
   };
+}
+
+async function createShareLink(projectId, assetIds) {
+  const token = await getAccessToken();
+  const headers = apiHeaders(token);
+
+  const res = await axios.post(
+    `${accountBase()}/projects/${projectId}/shares`,
+    {
+      data: {
+        type: 'asset',
+        asset_ids: assetIds,
+        access: 'public',
+        commenting_enabled: true,
+        downloading_enabled: true
+      }
+    },
+    { headers }
+  );
+
+  const share = res.data.data || res.data;
+  return share.short_url || `https://app.frame.io/reviews/${share.id}`;
 }
 
 module.exports = {
@@ -245,5 +268,6 @@ module.exports = {
   hasRefreshToken,
   listClients,
   listProjectFolders,
-  uploadFile
+  uploadFile,
+  createShareLink
 };

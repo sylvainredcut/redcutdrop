@@ -63,5 +63,5 @@ app.use((req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Redcut Drop running on http://localhost:${PORT}`);
+  console.log(`Upload Redcut running on http://localhost:${PORT}`);
 });

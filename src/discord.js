@@ -25,7 +25,7 @@ async function sendDiscordNotification({ filename, client, week, filesize, link 
 
   try {
     await axios.post(webhookUrl, {
-      username: 'Redcut Drop',
+      username: 'Upload Redcut',
       embeds: [embed]
     });
   } catch (err) {
