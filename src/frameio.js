@@ -106,25 +106,40 @@ function apiHeaders(token) {
   };
 }
 
-// ---- Frame.io API ----
+// ---- Frame.io v4 API ----
+
+function accountBase() {
+  return `${FRAMEIO_API}/accounts/${process.env.FRAMEIO_ACCOUNT_ID}`;
+}
 
 async function listClients() {
   const token = await getAccessToken();
-  const accountId = process.env.FRAMEIO_ACCOUNT_ID;
-  const res = await axios.get(`${FRAMEIO_API}/accounts/${accountId}/projects`, {
-    headers: apiHeaders(token),
-    params: { page_size: 50 }
-  });
-  const items = Array.isArray(res.data) ? res.data : (res.data.results || res.data.data || []);
-  return items.map(p => ({ id: p.id, name: p.name }));
+  const headers = apiHeaders(token);
+
+  // First get all workspaces for this account
+  const wsRes = await axios.get(`${accountBase()}/workspaces`, { headers });
+  const workspaces = wsRes.data.data || [];
+
+  // Then get projects from all workspaces
+  const allProjects = [];
+  for (const ws of workspaces) {
+    const projRes = await axios.get(
+      `${accountBase()}/workspaces/${ws.id}/projects`,
+      { headers }
+    );
+    const projects = projRes.data.data || [];
+    allProjects.push(...projects.map(p => ({ id: p.id, name: p.name, root_folder_id: p.root_folder_id })));
+  }
+
+  return allProjects;
 }
 
-async function getProjectRootAssetId(projectId) {
+async function getProjectRootFolderId(projectId) {
   const token = await getAccessToken();
-  const res = await axios.get(`${FRAMEIO_API}/projects/${projectId}`, {
+  const res = await axios.get(`${accountBase()}/projects/${projectId}`, {
     headers: apiHeaders(token)
   });
-  return res.data.root_asset_id;
+  return res.data.data ? res.data.data.root_folder_id : res.data.root_folder_id;
 }
 
 const WEEK_REGEX = /^S\d{2}$/i;
@@ -140,55 +155,56 @@ function isAllowedFolder(name) {
 
 async function listProjectFolders(projectId) {
   const token = await getAccessToken();
-  const rootAssetId = await getProjectRootAssetId(projectId);
+  const headers = apiHeaders(token);
+  const rootFolderId = await getProjectRootFolderId(projectId);
 
-  const res = await axios.get(`${FRAMEIO_API}/assets/${rootAssetId}/children`, {
-    headers: apiHeaders(token),
-    params: { type: 'folder', page_size: 100 }
+  const res = await axios.get(`${accountBase()}/folders/${rootFolderId}/folders`, {
+    headers
   });
 
-  const items = Array.isArray(res.data) ? res.data : (res.data.results || res.data.data || []);
+  const items = res.data.data || [];
   return items
-    .filter(item => item.type === 'folder' && isAllowedFolder(item.name))
+    .filter(item => isAllowedFolder(item.name))
     .map(f => ({ id: f.id, name: f.name }));
 }
 
-async function findOrCreate(headers, parentId, name) {
-  const listRes = await axios.get(`${FRAMEIO_API}/assets/${parentId}/children`, {
-    headers,
-    params: { type: 'folder', page_size: 100 }
+async function findOrCreateFolder(headers, parentId, name) {
+  // List existing sub-folders
+  const listRes = await axios.get(`${accountBase()}/folders/${parentId}/folders`, {
+    headers
   });
 
-  const items = Array.isArray(listRes.data) ? listRes.data : (listRes.data.results || listRes.data.data || []);
+  const items = listRes.data.data || [];
   const existing = items.find(
-    item => item.name.toLowerCase() === name.toLowerCase() && item.type === 'folder'
+    item => item.name.toLowerCase() === name.toLowerCase()
   );
 
   if (existing) return existing;
 
-  const createRes = await axios.post(`${FRAMEIO_API}/assets/${parentId}/children`, {
-    name,
-    type: 'folder'
+  // Create new folder
+  const createRes = await axios.post(`${accountBase()}/folders/${parentId}/folders`, {
+    data: { name }
   }, { headers });
 
-  return createRes.data;
+  return createRes.data.data || createRes.data;
 }
 
 async function uploadFile(filePath, fileName, fileSize, mimeType, projectId, weekFolder) {
   const token = await getAccessToken();
-  const rootAssetId = await getProjectRootAssetId(projectId);
   const headers = apiHeaders(token);
+  const rootFolderId = await getProjectRootFolderId(projectId);
 
-  const folder = await findOrCreate(headers, rootAssetId, weekFolder);
+  // Find or create the week folder
+  const folder = await findOrCreateFolder(headers, rootFolderId, weekFolder);
 
-  const assetRes = await axios.post(`${FRAMEIO_API}/assets/${folder.id}/children`, {
-    name: fileName,
-    type: 'file',
-    filesize: fileSize,
-    filetype: mimeType
-  }, { headers });
+  // Create file asset via local_upload endpoint (returns upload URLs)
+  const assetRes = await axios.post(
+    `${accountBase()}/folders/${folder.id}/files/local_upload`,
+    { data: { name: fileName, file_size: fileSize } },
+    { headers }
+  );
 
-  const asset = assetRes.data;
+  const asset = assetRes.data.data || assetRes.data;
   const uploadUrls = asset.upload_urls;
 
   if (!uploadUrls || uploadUrls.length === 0) {
@@ -215,7 +231,7 @@ async function uploadFile(filePath, fileName, fileSize, mimeType, projectId, wee
   return {
     id: asset.id,
     name: asset.name,
-    link: `https://app.frame.io/reviews/${asset.id}`
+    link: asset.view_url || `https://app.frame.io/player/${asset.id}`
   };
 }
 
