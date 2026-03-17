@@ -12,6 +12,7 @@ const adminRoutes = require('./routes/admin');
 const { requireAdmin, requireUser } = require('./middleware/auth');
 
 const app = express();
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 
 // Ensure dirs exist
