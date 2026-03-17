@@ -24,7 +24,8 @@
   // ---- Load clients (= Frame.io projects) ----
   async function loadClients() {
     try {
-      const res = await fetch('/api/clients');
+      const res = await fetch('/api/clients', { headers: { 'Accept': 'application/json' } });
+      if (res.status === 401) { window.location.href = '/login'; return; }
       if (!res.ok) throw new Error('Erreur serveur');
       const clients = await res.json();
       clients.sort((a, b) => a.name.localeCompare(b.name, 'fr'));

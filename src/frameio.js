@@ -250,7 +250,6 @@ async function createShareLink(projectId, assetIds) {
         type: 'asset',
         asset_ids: assetIds,
         access: 'public',
-        commenting_enabled: true,
         downloading_enabled: true
       }
     },
