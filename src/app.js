@@ -60,11 +60,11 @@ app.use('/auth/login', authLimiter);
 app.use('/auth/user/login', authLimiter);
 app.use('/auth', authRoutes);
 
+// Admin API — requires admin (must be before /api to avoid requireUser intercepting)
+app.use('/api/admin', requireAdmin, adminRoutes);
+
 // Upload API — requires authenticated user
 app.use('/api', requireUser, uploadRoutes);
-
-// Admin API — requires admin
-app.use('/api/admin', requireAdmin, adminRoutes);
 
 // Pages
 app.get('/login', (req, res) => {
