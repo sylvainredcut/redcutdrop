@@ -2,7 +2,6 @@ require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
 const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
 const path = require('path');
 const fs = require('fs');
 
@@ -27,15 +26,6 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false
 }));
 
-// Rate limiting on auth endpoints
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 min
-  max: 20,
-  message: { error: 'Trop de tentatives, réessayez dans 15 minutes' },
-  standardHeaders: true,
-  legacyHeaders: false
-});
-
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -56,8 +46,6 @@ app.use(session({
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Auth routes (login pages, Adobe OAuth) — public with rate limiting
-app.use('/auth/login', authLimiter);
-app.use('/auth/user/login', authLimiter);
 app.use('/auth', authRoutes);
 
 // Admin API — requires admin (must be before /api to avoid requireUser intercepting)

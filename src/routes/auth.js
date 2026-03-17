@@ -1,10 +1,19 @@
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const { getAuthorizeUrl, exchangeCodeForTokens, hasRefreshToken } = require('../frameio');
 const { verifyUser } = require('../db');
 const router = express.Router();
 
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: { error: 'Trop de tentatives, réessayez dans 15 minutes' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
 // Admin login
-router.post('/login', (req, res) => {
+router.post('/login', authLimiter, (req, res) => {
   const { password } = req.body;
   const expected = process.env.ADMIN_PASSWORD;
 
@@ -21,7 +30,7 @@ router.post('/login', (req, res) => {
 });
 
 // User (monteur) login
-router.post('/user/login', (req, res) => {
+router.post('/user/login', authLimiter, (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) {
     return res.status(400).json({ error: 'Email et mot de passe requis' });
