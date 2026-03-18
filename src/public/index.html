@@ -16,7 +16,7 @@
       </div>
       <div class="header-right">
         <span id="userName" class="user-name"></span>
-        <button class="btn btn-ghost btn-sm" id="logoutBtn">Déconnexion</button>
+        <button class="btn btn-ghost btn-sm" id="logoutBtn">Deconnexion</button>
       </div>
     </div>
   </header>
@@ -24,21 +24,47 @@
   <main>
     <div class="upload-card">
       <h1>Envoyer une video</h1>
-      <p class="subtitle">La video sera upload automatiquement vers Frame.io dans le dossier client correspondant. Rendez-vous sur Discord Redcut pour voir vos retours.</p>
+      <p class="subtitle">La video sera upload automatiquement vers Frame.io dans le dossier client correspondant.</p>
+
+      <!-- Mode tabs -->
+      <div class="mode-tabs">
+        <button class="mode-tab active" data-mode="revision">Revision</button>
+        <button class="mode-tab" data-mode="publish">Mise en ligne</button>
+      </div>
 
       <form id="uploadForm">
-        <div class="field">
-          <label for="clientSelect">Client</label>
-          <select id="clientSelect" required>
-            <option value="">Chargement des clients...</option>
-          </select>
+        <!-- REVISION MODE fields -->
+        <div id="revisionFields">
+          <div class="field">
+            <label for="clientSelect">Client</label>
+            <select id="clientSelect" required>
+              <option value="">Chargement des clients...</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="weekSelect">Semaine</label>
+            <select id="weekSelect" required>
+              <option value="">Selectionner une semaine...</option>
+            </select>
+          </div>
         </div>
 
-        <div class="field">
-          <label for="weekSelect">Semaine</label>
-          <select id="weekSelect" required>
-            <option value="">Selectionner une semaine...</option>
-          </select>
+        <!-- PUBLISH MODE fields -->
+        <div id="publishFields" style="display:none">
+          <div class="field">
+            <label for="brandSelect">Marque</label>
+            <select id="brandSelect">
+              <option value="">Chargement des marques...</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="publishClientSelect">Archivage Frame.io <span class="hint">(optionnel)</span></label>
+            <select id="publishClientSelect">
+              <option value="">Pas d'archivage Frame.io</option>
+            </select>
+          </div>
         </div>
 
         <div class="field">
@@ -47,7 +73,7 @@
         </div>
 
         <div class="field">
-          <label>Fichiers video <span class="hint">(3 max)</span></label>
+          <label id="fileLabel">Fichiers video <span class="hint" id="fileHint">(3 max)</span></label>
           <div class="dropzone" id="dropzone">
             <input type="file" id="fileInput" accept="video/*,.mxf,.mts,.m2ts,.prores,.r3d,.braw" multiple hidden>
             <div class="dropzone-inner" id="dropzoneInner">
@@ -82,7 +108,7 @@
           <circle cx="24" cy="24" r="20" fill="#dcfce7"/>
           <path d="M15 24l7 7 11-14" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
-        <h2>Upload reussi !</h2>
+        <h2 id="successTitle">Upload reussi !</h2>
         <p id="successMsg"></p>
         <a id="shareLink" class="btn btn-outline" href="#" target="_blank">Voir et commenter sur Frame.io</a>
         <button class="btn btn-ghost" id="resetBtn">Nouvel upload</button>

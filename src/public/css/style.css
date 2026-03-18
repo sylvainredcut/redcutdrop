@@ -73,7 +73,20 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
 main { max-width: 900px; margin: 2.5rem auto; padding: 0 1.5rem; }
 .upload-card { background: var(--surface); border-radius: var(--radius); padding: 2.5rem; box-shadow: var(--shadow); max-width: 640px; margin: 0 auto; }
 .upload-card h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.25rem; }
-.upload-card .subtitle { color: var(--text-muted); font-size: 0.875rem; margin-bottom: 2rem; }
+.upload-card .subtitle { color: var(--text-muted); font-size: 0.875rem; margin-bottom: 1.25rem; }
+
+.mode-tabs {
+  display: flex; gap: 0; margin-bottom: 1.5rem;
+  border: 1.5px solid var(--border); border-radius: var(--radius-sm); overflow: hidden;
+}
+.mode-tab {
+  flex: 1; padding: 10px 16px; font-size: 0.9rem; font-weight: 600;
+  background: var(--bg); color: var(--text-muted); border: none; cursor: pointer;
+  transition: all 0.15s ease; text-align: center;
+}
+.mode-tab:not(:last-child) { border-right: 1.5px solid var(--border); }
+.mode-tab.active { background: var(--primary); color: #fff; }
+.mode-tab:hover:not(.active) { background: var(--border); color: var(--text); }
 
 .dropzone { border: 2px dashed var(--border); border-radius: var(--radius); padding: 2rem; text-align: center; transition: all 0.2s; cursor: pointer; }
 .dropzone.dragover { border-color: var(--primary); background: var(--primary-light); }

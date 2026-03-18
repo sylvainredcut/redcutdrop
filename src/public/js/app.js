@@ -1,6 +1,9 @@
 (function () {
+  // ---- DOM refs ----
   const clientSelect = document.getElementById('clientSelect');
   const weekSelect = document.getElementById('weekSelect');
+  const brandSelect = document.getElementById('brandSelect');
+  const publishClientSelect = document.getElementById('publishClientSelect');
   const fileInput = document.getElementById('fileInput');
   const dropzone = document.getElementById('dropzone');
   const dropzoneInner = document.getElementById('dropzoneInner');
@@ -13,15 +16,51 @@
   const progressText = document.getElementById('progressText');
   const uploadError = document.getElementById('uploadError');
   const successPanel = document.getElementById('successPanel');
+  const successTitle = document.getElementById('successTitle');
   const successMsg = document.getElementById('successMsg');
   const shareLink = document.getElementById('shareLink');
   const resetBtn = document.getElementById('resetBtn');
   const commentInput = document.getElementById('commentInput');
+  const revisionFields = document.getElementById('revisionFields');
+  const publishFields = document.getElementById('publishFields');
+  const fileHint = document.getElementById('fileHint');
 
-  const MAX_FILES = 3;
+  let currentMode = 'revision'; // 'revision' or 'publish'
   let selectedFiles = [];
 
-  // ---- Load clients (= Frame.io projects) ----
+  function getMaxFiles() {
+    return currentMode === 'revision' ? 3 : 1;
+  }
+
+  // ---- Mode switching ----
+  document.querySelectorAll('.mode-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      currentMode = tab.dataset.mode;
+
+      if (currentMode === 'revision') {
+        revisionFields.style.display = 'block';
+        publishFields.style.display = 'none';
+        fileHint.textContent = '(3 max)';
+        fileInput.multiple = true;
+        uploadBtn.textContent = 'Envoyer vers Frame.io';
+      } else {
+        revisionFields.style.display = 'none';
+        publishFields.style.display = 'block';
+        fileHint.textContent = '(1 fichier)';
+        fileInput.multiple = false;
+        uploadBtn.textContent = 'Mettre en ligne';
+      }
+
+      // Clear files when switching mode
+      clearFiles();
+      uploadError.style.display = 'none';
+      updateUploadBtn();
+    });
+  });
+
+  // ---- Load clients (Frame.io projects — for revision mode) ----
   async function loadClients() {
     try {
       const res = await fetch('/api/clients', { headers: { 'Accept': 'application/json' } });
@@ -29,24 +68,48 @@
       if (!res.ok) throw new Error('Erreur serveur');
       const clients = await res.json();
       clients.sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+
       clientSelect.innerHTML = '<option value="">Selectionner un client...</option>';
+      publishClientSelect.innerHTML = '<option value="">Pas d\'archivage Frame.io</option>';
+
       clients.forEach(c => {
         const opt = document.createElement('option');
         opt.value = c.id;
         opt.textContent = c.name;
         opt.dataset.name = c.name;
         clientSelect.appendChild(opt);
+
+        // Also populate the optional Frame.io archive select in publish mode
+        const opt2 = opt.cloneNode(true);
+        publishClientSelect.appendChild(opt2);
       });
     } catch {
       clientSelect.innerHTML = '<option value="">Erreur de chargement</option>';
     }
   }
 
+  // ---- Load brands (Baserow — for publish mode) ----
+  async function loadBrands() {
+    try {
+      const res = await fetch('/api/brands', { headers: { 'Accept': 'application/json' } });
+      if (!res.ok) throw new Error('Erreur serveur');
+      const brands = await res.json();
+      brandSelect.innerHTML = '<option value="">Selectionner une marque...</option>';
+      brands.forEach(b => {
+        const opt = document.createElement('option');
+        opt.value = b.name;
+        opt.textContent = b.name;
+        brandSelect.appendChild(opt);
+      });
+    } catch {
+      brandSelect.innerHTML = '<option value="">Erreur de chargement</option>';
+    }
+  }
+
   // ---- Week dropdown: S01-S52 with dates + Youtube ----
   function getWeekDates(weekNum, year) {
-    // ISO week: Jan 4 is always in week 1
     const jan4 = new Date(year, 0, 4);
-    const dayOfWeek = jan4.getDay() || 7; // Mon=1..Sun=7
+    const dayOfWeek = jan4.getDay() || 7;
     const monday = new Date(jan4);
     monday.setDate(jan4.getDate() - dayOfWeek + 1 + (weekNum - 1) * 7);
     const sunday = new Date(monday);
@@ -117,8 +180,9 @@
   }
 
   function addFiles(newFiles) {
+    const max = getMaxFiles();
     for (const file of newFiles) {
-      if (selectedFiles.length >= MAX_FILES) break;
+      if (selectedFiles.length >= max) break;
       if (!selectedFiles.some(f => f.name === file.name && f.size === file.size)) {
         selectedFiles.push(file);
       }
@@ -135,7 +199,11 @@
   }
 
   function updateUploadBtn() {
-    uploadBtn.disabled = !(selectedFiles.length > 0 && clientSelect.value && weekSelect.value);
+    if (currentMode === 'revision') {
+      uploadBtn.disabled = !(selectedFiles.length > 0 && clientSelect.value && weekSelect.value);
+    } else {
+      uploadBtn.disabled = !(selectedFiles.length > 0 && brandSelect.value);
+    }
   }
 
   browseBtn.addEventListener('click', () => fileInput.click());
@@ -151,6 +219,7 @@
 
   clientSelect.addEventListener('change', updateUploadBtn);
   weekSelect.addEventListener('change', updateUploadBtn);
+  brandSelect.addEventListener('change', updateUploadBtn);
 
   // ---- Drag & drop ----
   ['dragenter', 'dragover'].forEach(ev => {
@@ -169,22 +238,12 @@
     if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
   });
 
-  // ---- Upload ----
-  uploadForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    if (selectedFiles.length === 0) return;
-
+  // ---- Upload (Revision mode) ----
+  function submitRevision() {
     const projectId = clientSelect.value;
     const selectedOption = clientSelect.options[clientSelect.selectedIndex];
     const clientName = selectedOption.dataset.name || selectedOption.textContent;
     const week = weekSelect.value;
-
-    uploadError.style.display = 'none';
-    uploadBtn.disabled = true;
-    uploadBtn.textContent = 'Upload en cours...';
-    progressSection.style.display = 'block';
-    progressFill.style.width = '0%';
-    progressText.textContent = 'Envoi en cours...';
 
     const formData = new FormData();
     selectedFiles.forEach(f => formData.append('videos', f));
@@ -193,9 +252,40 @@
     formData.append('week', week);
     formData.append('comment', commentInput.value.trim());
 
+    return { url: '/api/upload', formData };
+  }
+
+  // ---- Upload (Publish mode) ----
+  function submitPublish() {
+    const brandName = brandSelect.value;
+    const projectId = publishClientSelect.value || '';
+
+    const formData = new FormData();
+    formData.append('video', selectedFiles[0]);
+    formData.append('brandName', brandName);
+    formData.append('projectId', projectId);
+    formData.append('comment', commentInput.value.trim());
+
+    return { url: '/api/publish', formData };
+  }
+
+  // ---- Form submit ----
+  uploadForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (selectedFiles.length === 0) return;
+
+    uploadError.style.display = 'none';
+    uploadBtn.disabled = true;
+    uploadBtn.textContent = currentMode === 'revision' ? 'Upload en cours...' : 'Mise en ligne en cours...';
+    progressSection.style.display = 'block';
+    progressFill.style.width = '0%';
+    progressText.textContent = 'Envoi en cours...';
+
+    const { url, formData } = currentMode === 'revision' ? submitRevision() : submitPublish();
+
     try {
       const xhr = new XMLHttpRequest();
-      xhr.open('POST', '/api/upload');
+      xhr.open('POST', url);
 
       xhr.upload.addEventListener('progress', (ev) => {
         if (ev.lengthComputable) {
@@ -224,9 +314,26 @@
 
       progressSection.style.display = 'none';
       uploadForm.style.display = 'none';
-      const names = result.assets.map(a => a.name).join(', ');
-      successMsg.textContent = names + (result.assets.length > 1 ? ' ont ete uploades avec succes.' : ' a ete uploade avec succes.');
-      shareLink.href = result.shareLink;
+
+      if (currentMode === 'revision') {
+        const names = result.assets.map(a => a.name).join(', ');
+        successTitle.textContent = 'Upload reussi !';
+        successMsg.textContent = names + (result.assets.length > 1 ? ' ont ete uploades avec succes.' : ' a ete uploade avec succes.');
+        shareLink.href = result.shareLink;
+        shareLink.textContent = 'Voir et commenter sur Frame.io';
+        shareLink.style.display = '';
+      } else {
+        successTitle.textContent = 'Mise en ligne lancee !';
+        successMsg.textContent = result.asset.name + ' a ete envoye. Le workflow N8N va creer le brouillon Metricool.';
+        if (result.shareLink) {
+          shareLink.href = result.shareLink;
+          shareLink.textContent = 'Voir sur Frame.io';
+          shareLink.style.display = '';
+        } else {
+          shareLink.style.display = 'none';
+        }
+      }
+
       successPanel.style.display = 'flex';
 
     } catch (err) {
@@ -234,7 +341,7 @@
       uploadError.textContent = err.message;
       uploadError.style.display = 'block';
       uploadBtn.disabled = false;
-      uploadBtn.textContent = 'Envoyer vers Frame.io';
+      uploadBtn.textContent = currentMode === 'revision' ? 'Envoyer vers Frame.io' : 'Mettre en ligne';
     }
   });
 
@@ -244,7 +351,7 @@
     uploadForm.style.display = 'block';
     clearFiles();
     commentInput.value = '';
-    uploadBtn.textContent = 'Envoyer vers Frame.io';
+    uploadBtn.textContent = currentMode === 'revision' ? 'Envoyer vers Frame.io' : 'Mettre en ligne';
     progressFill.style.width = '0%';
   });
 
@@ -269,5 +376,6 @@
   // ---- Init ----
   loadUser();
   loadClients();
+  loadBrands();
   generateWeeks();
 })();
