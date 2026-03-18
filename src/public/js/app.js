@@ -202,7 +202,9 @@
     if (currentMode === 'revision') {
       uploadBtn.disabled = !(selectedFiles.length > 0 && clientSelect.value && weekSelect.value);
     } else {
-      uploadBtn.disabled = !(selectedFiles.length > 0 && brandSelect.value);
+      const canSubmit = selectedFiles.length > 0 && brandSelect.value;
+      console.log('[publish] files:', selectedFiles.length, 'brand:', brandSelect.value, 'canSubmit:', canSubmit);
+      uploadBtn.disabled = !canSubmit;
     }
   }
 
