@@ -26,8 +26,17 @@
   const publishFields = document.getElementById('publishFields');
   const fileHint = document.getElementById('fileHint');
 
+  const transcriptionInput = document.getElementById('transcriptionInput');
+  const transcriptionDrop = document.getElementById('transcriptionDrop');
+  const transcriptionBrowse = document.getElementById('transcriptionBrowse');
+  const transcriptionPlaceholder = document.getElementById('transcriptionPlaceholder');
+  const transcriptionSelected = document.getElementById('transcriptionSelected');
+  const transcriptionName = document.getElementById('transcriptionName');
+  const transcriptionRemove = document.getElementById('transcriptionRemove');
+
   let currentMode = 'revision';
   let selectedFiles = [];
+  let transcriptionFile = null;
 
   function getMaxFiles() {
     return currentMode === 'revision' ? 3 : 1;
@@ -55,6 +64,7 @@
       }
 
       clearFiles();
+      clearTranscription();
       uploadError.style.display = 'none';
       updateUploadBtn();
     });
@@ -240,6 +250,39 @@
     if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
   });
 
+  // ---- Transcription file handling ----
+  transcriptionBrowse.addEventListener('click', (e) => { e.preventDefault(); transcriptionInput.click(); });
+  transcriptionDrop.addEventListener('click', (e) => {
+    if (e.target.closest('.remove-btn')) return;
+    if (!transcriptionFile) transcriptionInput.click();
+  });
+  transcriptionInput.addEventListener('change', () => {
+    if (transcriptionInput.files.length) setTranscription(transcriptionInput.files[0]);
+  });
+  ['dragenter', 'dragover'].forEach(ev => {
+    transcriptionDrop.addEventListener(ev, (e) => { e.preventDefault(); transcriptionDrop.classList.add('dragover'); });
+  });
+  ['dragleave', 'drop'].forEach(ev => {
+    transcriptionDrop.addEventListener(ev, (e) => { e.preventDefault(); transcriptionDrop.classList.remove('dragover'); });
+  });
+  transcriptionDrop.addEventListener('drop', (e) => {
+    if (e.dataTransfer.files.length) setTranscription(e.dataTransfer.files[0]);
+  });
+  transcriptionRemove.addEventListener('click', () => { clearTranscription(); });
+
+  function setTranscription(file) {
+    transcriptionFile = file;
+    transcriptionPlaceholder.style.display = 'none';
+    transcriptionSelected.style.display = 'flex';
+    transcriptionName.textContent = file.name;
+  }
+  function clearTranscription() {
+    transcriptionFile = null;
+    transcriptionInput.value = '';
+    transcriptionPlaceholder.style.display = 'flex';
+    transcriptionSelected.style.display = 'none';
+  }
+
   // ---- Upload (Revision mode) ----
   function submitRevision() {
     const projectId = clientSelect.value;
@@ -269,6 +312,9 @@
     formData.append('projectId', projectId);
     formData.append('week', week);
     formData.append('comment', commentInput.value.trim());
+    if (transcriptionFile) {
+      formData.append('transcription', transcriptionFile);
+    }
 
     return { url: '/api/publish', formData };
   }
@@ -354,6 +400,7 @@
     successPanel.style.display = 'none';
     uploadForm.style.display = 'block';
     clearFiles();
+    clearTranscription();
     commentInput.value = '';
     uploadBtn.textContent = currentMode === 'revision' ? 'Envoyer vers Frame.io' : 'Mettre en ligne';
     progressFill.style.width = '0%';

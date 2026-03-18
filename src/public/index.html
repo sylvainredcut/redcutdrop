@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Upload Redcut</title>
   <link rel="icon" type="image/png" href="/favicon.png">
-  <link rel="stylesheet" href="/css/style.css?v=4">
+  <link rel="stylesheet" href="/css/style.css?v=5">
 </head>
 <body>
   <header>
@@ -72,6 +72,21 @@
               <option value="">Selectionner une semaine...</option>
             </select>
           </div>
+
+          <div class="field">
+            <label for="transcriptionInput">Transcription <span class="hint">(optionnel — .txt, .srt, .vtt)</span></label>
+            <div class="transcription-drop" id="transcriptionDrop">
+              <input type="file" id="transcriptionInput" accept=".txt,.srt,.vtt,.doc,.docx,.rtf" hidden>
+              <div id="transcriptionPlaceholder" class="transcription-placeholder">
+                <span class="transcription-icon">&#128196;</span>
+                <span>Deposer un fichier texte ou <button type="button" class="link-btn" id="transcriptionBrowse">parcourir</button></span>
+              </div>
+              <div id="transcriptionSelected" class="transcription-selected" style="display:none">
+                <span id="transcriptionName"></span>
+                <button type="button" class="remove-btn" id="transcriptionRemove">x</button>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div class="field">
@@ -123,6 +138,6 @@
     </div>
   </main>
 
-  <script src="/js/app.js?v=4"></script>
+  <script src="/js/app.js?v=5"></script>
 </body>
 </html>

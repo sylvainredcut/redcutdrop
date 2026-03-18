@@ -58,7 +58,19 @@ const upload = multer({
 const publishUpload = multer({
   storage: publishStorage,
   limits: { fileSize: 15 * 1024 * 1024 * 1024 },
-  fileFilter: videoFilter
+  fileFilter: (req, file, cb) => {
+    // Accept video files OR text files (for transcription)
+    if (file.fieldname === 'transcription') {
+      const allowed = /\.(txt|srt|vtt|doc|docx|rtf)$/i;
+      if (allowed.test(file.originalname) || file.mimetype.startsWith('text/')) {
+        cb(null, true);
+      } else {
+        cb(new Error('Seuls les fichiers texte sont acceptes pour la transcription'));
+      }
+    } else {
+      videoFilter(req, file, cb);
+    }
+  }
 });
 
 // ---- Clients = Frame.io projects (filtered by user access) ----
@@ -200,9 +212,12 @@ router.post('/upload', upload.array('videos', 3), async (req, res) => {
   }
 });
 
-// ---- Publish endpoint (Mise en ligne mode) — 1 file ----
-router.post('/publish', publishUpload.single('video'), async (req, res) => {
-  const file = req.file;
+// ---- Publish endpoint (Mise en ligne mode) — 1 video + optional transcription ----
+router.post('/publish', publishUpload.fields([
+  { name: 'video', maxCount: 1 },
+  { name: 'transcription', maxCount: 1 }
+]), async (req, res) => {
+  const file = req.files?.video?.[0];
 
   if (!file) {
     return res.status(400).json({ error: 'Aucun fichier envoye' });
@@ -219,6 +234,18 @@ router.post('/publish', publishUpload.single('video'), async (req, res) => {
   const originalName = file.originalname.normalize('NFC');
   const appUrl = process.env.APP_URL || 'https://upload.redcut.fr';
   const videoUrl = `${appUrl}/storage/temp/${storageUid}/${encodeURIComponent(originalName)}`;
+
+  // Read transcription file content if provided, then delete it
+  let transcriptionText = '';
+  const transcriptionFile = req.files?.transcription?.[0];
+  if (transcriptionFile) {
+    try {
+      transcriptionText = fs.readFileSync(transcriptionFile.path, 'utf-8').trim();
+    } catch (err) {
+      console.error('Transcription read error:', err.message);
+    }
+    try { fs.unlinkSync(transcriptionFile.path); } catch {}
+  }
 
   try {
     // Upload to Frame.io for archiving: Client > Archivage > SXX
@@ -269,6 +296,7 @@ router.post('/publish', publishUpload.single('video'), async (req, res) => {
         name: brandName
       },
       publication_week: week,
+      transcription: transcriptionText || null,
       frame_io_asset_id: frameioAssetId,
       uploaded_by: req.session?.user?.name || (req.session?.admin ? 'admin' : null),
       timestamp: new Date().toISOString()
