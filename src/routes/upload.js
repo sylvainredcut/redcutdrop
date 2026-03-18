@@ -182,7 +182,8 @@ router.post('/upload', upload.array('videos', 3), async (req, res) => {
       week,
       filesize: files.reduce((sum, f) => sum + f.size, 0),
       link: shareLink,
-      comment: comment || ''
+      comment: comment || '',
+      mode: 'revision'
     });
 
     res.json({
@@ -287,10 +288,11 @@ router.post('/publish', publishUpload.single('video'), async (req, res) => {
     sendDiscordNotification({
       filename: originalName,
       client: brandName,
-      week: week + ' (Mise en ligne)',
+      week,
       filesize: file.size,
       link: shareLink || videoUrl,
-      comment: comment || ''
+      comment: comment || '',
+      mode: 'publish'
     });
 
     res.json({
