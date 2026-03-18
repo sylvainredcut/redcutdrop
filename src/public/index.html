@@ -28,8 +28,8 @@
 
       <!-- Mode tabs -->
       <div class="mode-tabs">
-        <button class="mode-tab active" data-mode="revision">Revision</button>
-        <button class="mode-tab" data-mode="publish">Mise en ligne</button>
+        <button type="button" class="mode-tab active" data-mode="revision">Revision</button>
+        <button type="button" class="mode-tab" data-mode="publish">Mise en ligne</button>
       </div>
 
       <form id="uploadForm">
@@ -37,14 +37,14 @@
         <div id="revisionFields">
           <div class="field">
             <label for="clientSelect">Client</label>
-            <select id="clientSelect" required>
+            <select id="clientSelect">
               <option value="">Chargement des clients...</option>
             </select>
           </div>
 
           <div class="field">
             <label for="weekSelect">Semaine</label>
-            <select id="weekSelect" required>
+            <select id="weekSelect">
               <option value="">Selectionner une semaine...</option>
             </select>
           </div>
