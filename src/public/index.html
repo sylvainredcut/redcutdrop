@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Upload Redcut</title>
   <link rel="icon" type="image/png" href="/favicon.png">
-  <link rel="stylesheet" href="/css/style.css?v=2">
+  <link rel="stylesheet" href="/css/style.css?v=3">
 </head>
 <body>
   <header>
@@ -53,9 +53,16 @@
         <!-- PUBLISH MODE fields -->
         <div id="publishFields" style="display:none">
           <div class="field">
-            <label for="brandSelect">Marque</label>
+            <label for="brandSelect">Marque <span class="hint">(Metricool)</span></label>
             <select id="brandSelect">
               <option value="">Chargement des marques...</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="publishWeekSelect">Semaine de publication</label>
+            <select id="publishWeekSelect">
+              <option value="">Selectionner une semaine...</option>
             </select>
           </div>
 
@@ -116,6 +123,6 @@
     </div>
   </main>
 
-  <script src="/js/app.js?v=2"></script>
+  <script src="/js/app.js?v=3"></script>
 </body>
 </html>

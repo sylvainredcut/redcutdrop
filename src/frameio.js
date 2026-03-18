@@ -239,6 +239,66 @@ async function uploadFile(filePath, fileName, fileSize, mimeType, projectId, wee
   };
 }
 
+// Upload file directly to a specific folder ID (no week folder logic)
+async function uploadFileToFolder(filePath, fileName, fileSize, mimeType, folderId) {
+  const token = await getAccessToken();
+  const headers = apiHeaders(token);
+
+  const assetRes = await axios.post(
+    `${accountBase()}/folders/${folderId}/files/local_upload`,
+    { data: { name: fileName, file_size: fileSize } },
+    { headers }
+  );
+
+  const asset = assetRes.data.data || assetRes.data;
+  const uploadUrls = asset.upload_urls;
+
+  if (!uploadUrls || uploadUrls.length === 0) {
+    throw new Error('No upload URLs returned from Frame.io');
+  }
+
+  let offset = 0;
+  for (const part of uploadUrls) {
+    const url = typeof part === 'string' ? part : part.url;
+    const partSize = typeof part === 'string' ? fileSize : part.size;
+    const start = offset;
+    const end = Math.min(start + partSize, fileSize);
+    const chunk = fs.createReadStream(filePath, { start, end: end - 1 });
+
+    await axios.put(url, chunk, {
+      headers: {
+        'Content-Type': asset.media_type || mimeType,
+        'Content-Length': end - start,
+        'x-amz-acl': 'private'
+      },
+      maxBodyLength: Infinity,
+      maxContentLength: Infinity
+    });
+    offset = end;
+  }
+
+  return {
+    id: asset.id,
+    name: asset.name,
+    project_id: asset.project_id,
+    view_url: asset.view_url
+  };
+}
+
+// Create nested folder path from project root (e.g. ['Archivage', 'S12'])
+async function findOrCreateNestedFolder(projectId, folderPath) {
+  const token = await getAccessToken();
+  const headers = apiHeaders(token);
+  let currentFolderId = await getProjectRootFolderId(projectId);
+
+  for (const folderName of folderPath) {
+    const folder = await findOrCreateFolder(headers, currentFolderId, folderName);
+    currentFolderId = folder.id;
+  }
+
+  return currentFolderId;
+}
+
 async function createShareLink(projectId, assetIds) {
   const token = await getAccessToken();
   const headers = apiHeaders(token);
@@ -268,5 +328,7 @@ module.exports = {
   listClients,
   listProjectFolders,
   uploadFile,
+  uploadFileToFolder,
+  findOrCreateNestedFolder,
   createShareLink
 };

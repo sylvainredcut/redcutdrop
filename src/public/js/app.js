@@ -3,6 +3,7 @@
   const clientSelect = document.getElementById('clientSelect');
   const weekSelect = document.getElementById('weekSelect');
   const brandSelect = document.getElementById('brandSelect');
+  const publishWeekSelect = document.getElementById('publishWeekSelect');
   const publishClientSelect = document.getElementById('publishClientSelect');
   const fileInput = document.getElementById('fileInput');
   const dropzone = document.getElementById('dropzone');
@@ -25,7 +26,7 @@
   const publishFields = document.getElementById('publishFields');
   const fileHint = document.getElementById('fileHint');
 
-  let currentMode = 'revision'; // 'revision' or 'publish'
+  let currentMode = 'revision';
   let selectedFiles = [];
 
   function getMaxFiles() {
@@ -53,14 +54,13 @@
         uploadBtn.textContent = 'Mettre en ligne';
       }
 
-      // Clear files when switching mode
       clearFiles();
       uploadError.style.display = 'none';
       updateUploadBtn();
     });
   });
 
-  // ---- Load clients (Frame.io projects — for revision mode) ----
+  // ---- Load clients (Frame.io projects) ----
   async function loadClients() {
     try {
       const res = await fetch('/api/clients', { headers: { 'Accept': 'application/json' } });
@@ -79,7 +79,6 @@
         opt.dataset.name = c.name;
         clientSelect.appendChild(opt);
 
-        // Also populate the optional Frame.io archive select in publish mode
         const opt2 = opt.cloneNode(true);
         publishClientSelect.appendChild(opt2);
       });
@@ -88,7 +87,7 @@
     }
   }
 
-  // ---- Load brands (Baserow — for publish mode) ----
+  // ---- Load brands (Baserow) ----
   async function loadBrands() {
     try {
       const res = await fetch('/api/brands', { headers: { 'Accept': 'application/json' } });
@@ -106,7 +105,7 @@
     }
   }
 
-  // ---- Week dropdown: S01-S52 with dates + Youtube ----
+  // ---- Week helpers ----
   function getWeekDates(weekNum, year) {
     const jan4 = new Date(year, 0, 4);
     const dayOfWeek = jan4.getDay() || 7;
@@ -121,21 +120,23 @@
     return d.getDate() + '/' + String(d.getMonth() + 1).padStart(2, '0');
   }
 
-  function generateWeeks() {
+  function populateWeekSelect(selectEl, options) {
     const year = new Date().getFullYear();
-    weekSelect.innerHTML = '<option value="">Selectionner une semaine...</option>';
+    selectEl.innerHTML = '<option value="">Selectionner une semaine...</option>';
     for (let w = 1; w <= 52; w++) {
       const opt = document.createElement('option');
       const label = 'S' + String(w).padStart(2, '0');
       const { monday, sunday } = getWeekDates(w, year);
       opt.value = label;
       opt.textContent = label + '  (' + formatShortDate(monday) + ' — ' + formatShortDate(sunday) + ')';
-      weekSelect.appendChild(opt);
+      selectEl.appendChild(opt);
     }
-    const ytOpt = document.createElement('option');
-    ytOpt.value = 'Youtube';
-    ytOpt.textContent = 'Youtube';
-    weekSelect.appendChild(ytOpt);
+    if (options?.includeYoutube) {
+      const ytOpt = document.createElement('option');
+      ytOpt.value = 'Youtube';
+      ytOpt.textContent = 'Youtube';
+      selectEl.appendChild(ytOpt);
+    }
   }
 
   // ---- File handling ----
@@ -202,9 +203,7 @@
     if (currentMode === 'revision') {
       uploadBtn.disabled = !(selectedFiles.length > 0 && clientSelect.value && weekSelect.value);
     } else {
-      const canSubmit = selectedFiles.length > 0 && brandSelect.value;
-      console.log('[publish] files:', selectedFiles.length, 'brand:', brandSelect.value, 'canSubmit:', canSubmit);
-      uploadBtn.disabled = !canSubmit;
+      uploadBtn.disabled = !(selectedFiles.length > 0 && brandSelect.value && publishWeekSelect.value);
     }
   }
 
@@ -222,6 +221,7 @@
   clientSelect.addEventListener('change', updateUploadBtn);
   weekSelect.addEventListener('change', updateUploadBtn);
   brandSelect.addEventListener('change', updateUploadBtn);
+  publishWeekSelect.addEventListener('change', updateUploadBtn);
 
   // ---- Drag & drop ----
   ['dragenter', 'dragover'].forEach(ev => {
@@ -261,11 +261,13 @@
   function submitPublish() {
     const brandName = brandSelect.value;
     const projectId = publishClientSelect.value || '';
+    const week = publishWeekSelect.value;
 
     const formData = new FormData();
     formData.append('video', selectedFiles[0]);
     formData.append('brandName', brandName);
     formData.append('projectId', projectId);
+    formData.append('week', week);
     formData.append('comment', commentInput.value.trim());
 
     return { url: '/api/publish', formData };
@@ -379,5 +381,6 @@
   loadUser();
   loadClients();
   loadBrands();
-  generateWeeks();
+  populateWeekSelect(weekSelect, { includeYoutube: true });
+  populateWeekSelect(publishWeekSelect);
 })();

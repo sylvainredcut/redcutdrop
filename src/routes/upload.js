@@ -4,7 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const axios = require('axios');
-const { uploadFile, createShareLink, listClients, listProjectFolders } = require('../frameio');
+const { uploadFile, uploadFileToFolder, createShareLink, listClients, listProjectFolders, findOrCreateNestedFolder } = require('../frameio');
 const { recordUpload, getUserClients } = require('../db');
 const { sendDiscordNotification } = require('../discord');
 
@@ -207,11 +207,11 @@ router.post('/publish', publishUpload.single('video'), async (req, res) => {
     return res.status(400).json({ error: 'Aucun fichier envoye' });
   }
 
-  const { brandName, projectId, comment } = req.body;
+  const { brandName, projectId, week, comment } = req.body;
 
-  if (!brandName) {
+  if (!brandName || !week) {
     try { fs.unlinkSync(file.path); } catch {}
-    return res.status(400).json({ error: 'Marque requise' });
+    return res.status(400).json({ error: 'Marque et semaine requises' });
   }
 
   const storageUid = req._storageUid;
@@ -220,23 +220,25 @@ router.post('/publish', publishUpload.single('video'), async (req, res) => {
   const videoUrl = `${appUrl}/storage/temp/${storageUid}/${encodeURIComponent(originalName)}`;
 
   try {
-    // Upload to Frame.io for archiving (use "Mise en ligne" as folder)
+    // Upload to Frame.io for archiving: Client > Archivage > SXX
     let frameioAssetId = null;
     let shareLink = null;
 
     if (projectId) {
-      const result = await uploadFile(
+      // Create Archivage/SXX folder structure
+      const archiveFolderId = await findOrCreateNestedFolder(projectId, ['Archivage', week]);
+
+      const result = await uploadFileToFolder(
         file.path,
         originalName,
         file.size,
         file.mimetype,
-        projectId,
-        'Mise en ligne'
+        archiveFolderId
       );
       frameioAssetId = result.id;
 
       try {
-        shareLink = await createShareLink(result.project_id, [result.id]);
+        shareLink = await createShareLink(projectId, [result.id]);
       } catch (err) {
         console.error('Share link error:', err.response?.data || err.message);
       }
@@ -244,7 +246,7 @@ router.post('/publish', publishUpload.single('video'), async (req, res) => {
       recordUpload({
         filename: originalName,
         client: brandName,
-        week: 'Mise en ligne',
+        week: week,
         filesize: file.size,
         frameio_asset_id: result.id,
         frameio_link: result.view_url || '',
@@ -265,6 +267,7 @@ router.post('/publish', publishUpload.single('video'), async (req, res) => {
       project: {
         name: brandName
       },
+      publication_week: week,
       frame_io_asset_id: frameioAssetId,
       uploaded_by: req.session?.user?.name || (req.session?.admin ? 'admin' : null),
       timestamp: new Date().toISOString()
@@ -275,17 +278,16 @@ router.post('/publish', publishUpload.single('video'), async (req, res) => {
         headers: { 'Content-Type': 'application/json' },
         timeout: 10000
       });
-      console.log('N8N webhook sent:', originalName, brandName);
+      console.log('N8N webhook sent:', originalName, brandName, week);
     } catch (err) {
       console.error('N8N webhook error:', err.message);
-      // Don't fail the upload if webhook fails
     }
 
     // Discord notification
     sendDiscordNotification({
       filename: originalName,
       client: brandName,
-      week: 'Mise en ligne',
+      week: week + ' (Mise en ligne)',
       filesize: file.size,
       link: shareLink || videoUrl,
       comment: comment || ''
