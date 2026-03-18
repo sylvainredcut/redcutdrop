@@ -70,7 +70,7 @@
       clients.sort((a, b) => a.name.localeCompare(b.name, 'fr'));
 
       clientSelect.innerHTML = '<option value="">Selectionner un client...</option>';
-      publishClientSelect.innerHTML = '<option value="">Pas d\'archivage Frame.io</option>';
+      publishClientSelect.innerHTML = '<option value="">Selectionner un client...</option>';
 
       clients.forEach(c => {
         const opt = document.createElement('option');
