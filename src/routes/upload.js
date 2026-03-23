@@ -183,7 +183,7 @@ router.post('/upload', upload.array('videos', 3), async (req, res) => {
 
     let shareLink = results[0].view_url;
     try {
-      shareLink = await createShareLink(results[0].project_id, assetIds);
+      shareLink = await createShareLink(results[0].project_id, assetIds, `${clientName} ${week}`);
     } catch (err) {
       console.error('Share link error:', err.response?.data || err.message);
     }
@@ -266,7 +266,7 @@ router.post('/publish', publishUpload.fields([
       frameioAssetId = result.id;
 
       try {
-        shareLink = await createShareLink(projectId, [result.id]);
+        shareLink = await createShareLink(projectId, [result.id], `${brandName} ${week}`);
       } catch (err) {
         console.error('Share link error:', err.response?.data || err.message);
       }

@@ -299,7 +299,7 @@ async function findOrCreateNestedFolder(projectId, folderPath) {
   return currentFolderId;
 }
 
-async function createShareLink(projectId, assetIds) {
+async function createShareLink(projectId, assetIds, name) {
   const token = await getAccessToken();
   const headers = apiHeaders(token);
 
@@ -307,6 +307,7 @@ async function createShareLink(projectId, assetIds) {
     `${accountBase()}/projects/${projectId}/shares`,
     {
       data: {
+        name: name || 'Redcut Share',
         type: 'asset',
         asset_ids: assetIds,
         access: 'public',
