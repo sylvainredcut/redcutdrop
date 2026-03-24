@@ -321,6 +321,14 @@ async function createShareLink(projectId, assetIds, name) {
   return share.short_url || `https://app.frame.io/reviews/${share.id}`;
 }
 
+async function getAssetDownloadUrl(assetId) {
+  const token = await getAccessToken();
+  const headers = apiHeaders(token);
+  const res = await axios.get(`${FRAMEIO_API}/assets/${assetId}`, { headers });
+  const asset = res.data.data || res.data;
+  return asset.original_url || asset.download_url || null;
+}
+
 module.exports = {
   getAccessToken,
   getAuthorizeUrl,
@@ -331,5 +339,6 @@ module.exports = {
   uploadFile,
   uploadFileToFolder,
   findOrCreateNestedFolder,
-  createShareLink
+  createShareLink,
+  getAssetDownloadUrl
 };

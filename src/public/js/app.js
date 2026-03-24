@@ -337,6 +337,8 @@
       const xhr = new XMLHttpRequest();
       xhr.open('POST', url);
 
+      // Phase 1: Track browser → server upload progress
+      let serverUploadDone = false;
       xhr.upload.addEventListener('progress', (ev) => {
         if (ev.lengthComputable) {
           const pct = Math.round((ev.loaded / ev.total) * 100);
@@ -344,15 +346,53 @@
           progressText.textContent = 'Envoi : ' + pct + '% (' + formatFileSize(ev.loaded) + ' / ' + formatFileSize(ev.total) + ')';
         }
       });
+      xhr.upload.addEventListener('load', () => {
+        serverUploadDone = true;
+        progressFill.style.width = '100%';
+        progressText.textContent = 'Transfert vers Frame.io en cours...';
+      });
+
+      // Phase 2: Read NDJSON stream for Frame.io upload progress
+      let lastProcessed = 0;
+      xhr.addEventListener('readystatechange', () => {
+        if (xhr.readyState >= 3 && serverUploadDone) {
+          const text = xhr.responseText.substring(lastProcessed);
+          const lines = text.split('\n').filter(Boolean);
+          for (const line of lines) {
+            try {
+              const msg = JSON.parse(line);
+              if (msg.type === 'progress' && msg.step === 'frameio') {
+                const label = msg.total > 1
+                  ? 'Transfert Frame.io (' + msg.file + '/' + msg.total + ') : ' + msg.name
+                  : 'Transfert vers Frame.io...';
+                progressText.textContent = label;
+              } else if (msg.type === 'progress' && msg.step === 'webhook') {
+                progressText.textContent = 'Finalisation...';
+              }
+            } catch {}
+          }
+          lastProcessed = xhr.responseText.length;
+        }
+      });
 
       const result = await new Promise((resolve, reject) => {
         xhr.onload = () => {
           try {
-            const data = JSON.parse(xhr.responseText);
-            if (xhr.status >= 200 && xhr.status < 300 && data.ok) {
-              resolve(data);
+            // Parse NDJSON: find the last "done" message
+            const lines = xhr.responseText.trim().split('\n');
+            let doneMsg = null;
+            for (const line of lines) {
+              try {
+                const msg = JSON.parse(line);
+                if (msg.type === 'done') doneMsg = msg;
+              } catch {}
+            }
+            if (doneMsg && doneMsg.ok) {
+              resolve(doneMsg);
+            } else if (doneMsg) {
+              reject(new Error(doneMsg.error || 'Upload echoue'));
             } else {
-              reject(new Error(data.error || 'Upload echoue'));
+              reject(new Error('Reponse serveur invalide'));
             }
           } catch {
             reject(new Error('Reponse serveur invalide'));

@@ -4,7 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const axios = require('axios');
-const { uploadFile, uploadFileToFolder, createShareLink, listClients, listProjectFolders, findOrCreateNestedFolder } = require('../frameio');
+const { uploadFile, uploadFileToFolder, createShareLink, listClients, listProjectFolders, findOrCreateNestedFolder, getAssetDownloadUrl } = require('../frameio');
 const { recordUpload, getUserClients } = require('../db');
 const { sendDiscordNotification } = require('../discord');
 
@@ -138,6 +138,7 @@ router.get('/clients/:projectId/folders', async (req, res) => {
 });
 
 // ---- Upload endpoint (Revision mode) — up to 3 files ----
+// Uses NDJSON streaming to send heartbeats during Frame.io upload (prevents browser timeout)
 router.post('/upload', upload.array('videos', 3), async (req, res) => {
   const files = req.files;
 
@@ -152,11 +153,25 @@ router.post('/upload', upload.array('videos', 3), async (req, res) => {
     return res.status(400).json({ error: 'Client et semaine requis' });
   }
 
+  // Switch to NDJSON streaming to keep connection alive during Frame.io upload
+  res.setHeader('Content-Type', 'application/x-ndjson');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.flushHeaders();
+
+  // Send heartbeat every 10s to prevent proxy/browser timeout
+  const heartbeat = setInterval(() => {
+    try { res.write(JSON.stringify({ type: 'heartbeat' }) + '\n'); } catch {}
+  }, 10000);
+
   const results = [];
   const assetIds = [];
 
   try {
-    for (const file of files) {
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      res.write(JSON.stringify({ type: 'progress', step: 'frameio', file: i + 1, total: files.length, name: file.originalname }) + '\n');
+
       const result = await uploadFile(
         file.path,
         file.originalname.normalize('NFC'),
@@ -198,17 +213,15 @@ router.post('/upload', upload.array('videos', 3), async (req, res) => {
       mode: 'revision'
     });
 
-    res.json({
-      ok: true,
-      assets: results,
-      shareLink
-    });
+    clearInterval(heartbeat);
+    res.write(JSON.stringify({ type: 'done', ok: true, assets: results, shareLink }) + '\n');
+    res.end();
   } catch (err) {
+    clearInterval(heartbeat);
     files.forEach(f => { try { fs.unlinkSync(f.path); } catch {} });
     console.error('Upload error:', err.response?.data || err.message);
-    res.status(500).json({
-      error: err.response?.data?.message || err.message || 'Upload echoue'
-    });
+    res.write(JSON.stringify({ type: 'done', ok: false, error: err.response?.data?.message || err.message || 'Upload echoue' }) + '\n');
+    res.end();
   }
 });
 
@@ -247,12 +260,24 @@ router.post('/publish', publishUpload.fields([
     try { fs.unlinkSync(transcriptionFile.path); } catch {}
   }
 
+  // Switch to NDJSON streaming to keep connection alive during Frame.io upload
+  res.setHeader('Content-Type', 'application/x-ndjson');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.flushHeaders();
+
+  const heartbeat = setInterval(() => {
+    try { res.write(JSON.stringify({ type: 'heartbeat' }) + '\n'); } catch {}
+  }, 10000);
+
   try {
     // Upload to Frame.io for archiving: Client > Archivage > SXX
     let frameioAssetId = null;
     let shareLink = null;
 
     if (projectId) {
+      res.write(JSON.stringify({ type: 'progress', step: 'frameio', name: originalName }) + '\n');
+
       // Create Archivage/SXX folder structure
       const archiveFolderId = await findOrCreateNestedFolder(projectId, ['Archivage', week]);
 
@@ -282,7 +307,9 @@ router.post('/publish', publishUpload.fields([
       });
     }
 
-    // Send webhook to N8N
+    res.write(JSON.stringify({ type: 'progress', step: 'webhook' }) + '\n');
+
+    // Send webhook to N8N — always use local storage URL (file stays 48h)
     const n8nWebhookUrl = process.env.N8N_WEBHOOK_URL || 'https://n8n.srv1050420.hstgr.cloud/webhook/frameio-approval';
     const webhookPayload = {
       trigger: 'ready_for_publication',
@@ -323,21 +350,19 @@ router.post('/publish', publishUpload.fields([
       mode: 'publish'
     });
 
-    res.json({
-      ok: true,
-      asset: {
-        id: frameioAssetId,
-        name: originalName,
-        videoUrl
-      },
+    clearInterval(heartbeat);
+    res.write(JSON.stringify({
+      type: 'done', ok: true,
+      asset: { id: frameioAssetId, name: originalName, videoUrl },
       shareLink
-    });
+    }) + '\n');
+    res.end();
   } catch (err) {
+    clearInterval(heartbeat);
     // Don't delete the file from storage on error — keep it for retry
     console.error('Publish error:', err.response?.data || err.message);
-    res.status(500).json({
-      error: err.response?.data?.message || err.message || 'Publication echouee'
-    });
+    res.write(JSON.stringify({ type: 'done', ok: false, error: err.response?.data?.message || err.message || 'Publication echouee' }) + '\n');
+    res.end();
   }
 });
 
