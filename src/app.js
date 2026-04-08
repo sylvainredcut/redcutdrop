@@ -130,6 +130,13 @@ setInterval(cleanupTempStorage, 6 * 60 * 60 * 1000);
 // Run once at startup
 cleanupTempStorage();
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Upload Redcut running on http://localhost:${PORT}`);
 });
+
+// Allow large multi-GB uploads (Node default requestTimeout is 5min since v18)
+// Caddy in front already enforces 30min proxy timeouts and 16GB body limit.
+server.requestTimeout = 30 * 60 * 1000; // 30 min
+server.headersTimeout = 31 * 60 * 1000; // must be > requestTimeout
+server.keepAliveTimeout = 65 * 1000;
+server.timeout = 0; // disable inactivity timeout
