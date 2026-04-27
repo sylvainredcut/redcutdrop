@@ -37,9 +37,10 @@
   let currentMode = 'revision';
   let selectedFiles = [];
   let transcriptionFile = null;
+  let transcriptionFiles = []; // Multi-transcription for publish mode
 
   function getMaxFiles() {
-    return currentMode === 'revision' ? 3 : 1;
+    return currentMode === 'revision' ? 3 : 20;
   }
 
   // ---- Mode switching ----
@@ -55,16 +56,24 @@
         fileHint.textContent = '(3 max)';
         fileInput.multiple = true;
         uploadBtn.textContent = 'Envoyer vers Frame.io';
+        if (transcriptionDrop) transcriptionDrop.style.display = '';
+        const transcriptionLabelRev = document.querySelector('label[for="transcriptionInput"]');
+        if (transcriptionLabelRev) transcriptionLabelRev.style.display = '';
       } else {
         revisionFields.style.display = 'none';
         publishFields.style.display = 'block';
-        fileHint.textContent = '(1 fichier)';
-        fileInput.multiple = false;
+        fileHint.textContent = '(videos + transcriptions .txt)';
+        fileInput.multiple = true;
         uploadBtn.textContent = 'Mettre en ligne';
+        // Hide single transcription zone + label — matching is automatic via filename
+        if (transcriptionDrop) transcriptionDrop.style.display = 'none';
+        const transcriptionLabel = document.querySelector('label[for="transcriptionInput"]');
+        if (transcriptionLabel) transcriptionLabel.style.display = 'none';
       }
 
       clearFiles();
       clearTranscription();
+      transcriptionFiles = [];
       uploadError.style.display = 'none';
       updateUploadBtn();
     });
@@ -157,14 +166,26 @@
     return (bytes / 1073741824).toFixed(2) + ' Go';
   }
 
+  function getBaseName(filename) {
+    return filename.replace(/\.[^.]+$/, '').toLowerCase().trim();
+  }
+
+  function findMatchingTranscription(videoFile) {
+    const videoBase = getBaseName(videoFile.name);
+    return transcriptionFiles.find(t => getBaseName(t.name) === videoBase) || null;
+  }
+
   function renderFileList() {
     fileList.innerHTML = '';
-    if (selectedFiles.length === 0) {
+    if (selectedFiles.length === 0 && transcriptionFiles.length === 0) {
       dropzoneInner.style.display = 'flex';
       return;
     }
     dropzoneInner.style.display = 'none';
     selectedFiles.forEach((file, idx) => {
+      const matched = currentMode === 'publish' ? findMatchingTranscription(file) : null;
+      const matchLabel = matched ? ' + ' + matched.name : (currentMode === 'publish' ? ' (pas de transcription)' : '');
+      const matchColor = matched ? '#2a9d8f' : '#999';
       const row = document.createElement('div');
       row.className = 'file-selected';
       row.innerHTML = `
@@ -174,28 +195,62 @@
         </svg>
         <div>
           <p class="file-name">${file.name}</p>
-          <p class="file-size">${formatFileSize(file.size)}</p>
+          <p class="file-size">${formatFileSize(file.size)}${currentMode === 'publish' ? '<span style="color:' + matchColor + '; margin-left:8px; font-size:0.85em">' + matchLabel + '</span>' : ''}</p>
         </div>
         <button type="button" class="remove-btn" data-idx="${idx}">x</button>
       `;
       fileList.appendChild(row);
     });
+    // Show unmatched transcription files
+    if (currentMode === 'publish') {
+      const matchedBases = selectedFiles.map(f => getBaseName(f.name));
+      transcriptionFiles.forEach((tf, idx) => {
+        const isMatched = matchedBases.includes(getBaseName(tf.name));
+        if (!isMatched) {
+          const row = document.createElement('div');
+          row.className = 'file-selected';
+          row.innerHTML = `
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="#999" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <div>
+              <p class="file-name" style="color:#999">${tf.name} (pas de video correspondante)</p>
+            </div>
+            <button type="button" class="remove-btn" data-type="transcription" data-idx="${idx}">x</button>
+          `;
+          fileList.appendChild(row);
+        }
+      });
+    }
     fileList.querySelectorAll('.remove-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
-        selectedFiles.splice(parseInt(btn.dataset.idx), 1);
+        if (btn.dataset.type === 'transcription') {
+          transcriptionFiles.splice(parseInt(btn.dataset.idx), 1);
+        } else {
+          selectedFiles.splice(parseInt(btn.dataset.idx), 1);
+        }
         renderFileList();
         updateUploadBtn();
       });
     });
   }
 
+  const TEXT_EXTENSIONS = /\.(txt|srt|vtt|doc|docx|rtf)$/i;
+  const VIDEO_EXTENSIONS = /\.(mp4|mov|avi|mxf|mts|m2ts|mkv|wmv|flv|webm|prores|r3d|braw|mpg|mpeg|m4v|3gp|ts)$/i;
+
   function addFiles(newFiles) {
-    const max = getMaxFiles();
     for (const file of newFiles) {
-      if (selectedFiles.length >= max) break;
-      if (!selectedFiles.some(f => f.name === file.name && f.size === file.size)) {
-        selectedFiles.push(file);
+      if (currentMode === 'publish' && TEXT_EXTENSIONS.test(file.name)) {
+        if (!transcriptionFiles.some(f => f.name === file.name)) {
+          transcriptionFiles.push(file);
+        }
+      } else {
+        const max = getMaxFiles();
+        if (selectedFiles.length >= max) continue;
+        if (!selectedFiles.some(f => f.name === file.name && f.size === file.size)) {
+          selectedFiles.push(file);
+        }
       }
     }
     renderFileList();
@@ -319,40 +374,26 @@
     return { url: '/api/publish', formData };
   }
 
-  // ---- Form submit ----
-  uploadForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    if (selectedFiles.length === 0) return;
-
-    uploadError.style.display = 'none';
-    uploadBtn.disabled = true;
-    uploadBtn.textContent = currentMode === 'revision' ? 'Upload en cours...' : 'Mise en ligne en cours...';
-    progressSection.style.display = 'block';
-    progressFill.style.width = '0%';
-    progressText.textContent = 'Envoi en cours...';
-
-    const { url, formData } = currentMode === 'revision' ? submitRevision() : submitPublish();
-
-    try {
+  // ---- Single file upload via XHR with NDJSON streaming ----
+  function uploadSingleFile(url, formData, fileLabel) {
+    return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       xhr.open('POST', url);
 
-      // Phase 1: Track browser → server upload progress
       let serverUploadDone = false;
       xhr.upload.addEventListener('progress', (ev) => {
         if (ev.lengthComputable) {
           const pct = Math.round((ev.loaded / ev.total) * 100);
           progressFill.style.width = pct + '%';
-          progressText.textContent = 'Envoi : ' + pct + '% (' + formatFileSize(ev.loaded) + ' / ' + formatFileSize(ev.total) + ')';
+          progressText.textContent = fileLabel + ' — Envoi : ' + pct + '% (' + formatFileSize(ev.loaded) + ' / ' + formatFileSize(ev.total) + ')';
         }
       });
       xhr.upload.addEventListener('load', () => {
         serverUploadDone = true;
         progressFill.style.width = '100%';
-        progressText.textContent = 'Transfert vers Frame.io en cours...';
+        progressText.textContent = fileLabel + ' — Transfert vers Frame.io...';
       });
 
-      // Phase 2: Read NDJSON stream for Frame.io upload progress
       let lastProcessed = 0;
       xhr.addEventListener('readystatechange', () => {
         if (xhr.readyState >= 3 && serverUploadDone) {
@@ -362,12 +403,9 @@
             try {
               const msg = JSON.parse(line);
               if (msg.type === 'progress' && msg.step === 'frameio') {
-                const label = msg.total > 1
-                  ? 'Transfert Frame.io (' + msg.file + '/' + msg.total + ') : ' + msg.name
-                  : 'Transfert vers Frame.io...';
-                progressText.textContent = label;
+                progressText.textContent = fileLabel + ' — Transfert vers Frame.io...';
               } else if (msg.type === 'progress' && msg.step === 'webhook') {
-                progressText.textContent = 'Finalisation...';
+                progressText.textContent = fileLabel + ' — Finalisation...';
               }
             } catch {}
           }
@@ -375,56 +413,114 @@
         }
       });
 
-      const result = await new Promise((resolve, reject) => {
-        xhr.onload = () => {
-          try {
-            // Parse NDJSON: find the last "done" message
-            const lines = xhr.responseText.trim().split('\n');
-            let doneMsg = null;
-            for (const line of lines) {
-              try {
-                const msg = JSON.parse(line);
-                if (msg.type === 'done') doneMsg = msg;
-              } catch {}
-            }
-            if (doneMsg && doneMsg.ok) {
-              resolve(doneMsg);
-            } else if (doneMsg) {
-              reject(new Error(doneMsg.error || 'Upload echoue'));
-            } else {
-              reject(new Error('Reponse serveur invalide'));
-            }
-          } catch {
-            reject(new Error('Reponse serveur invalide'));
+      xhr.onload = () => {
+        try {
+          const lines = xhr.responseText.trim().split('\n');
+          let doneMsg = null;
+          for (const line of lines) {
+            try {
+              const msg = JSON.parse(line);
+              if (msg.type === 'done') doneMsg = msg;
+            } catch {}
           }
-        };
-        xhr.onerror = () => reject(new Error('Erreur reseau'));
-        xhr.send(formData);
-      });
+          if (doneMsg && doneMsg.ok) resolve(doneMsg);
+          else if (doneMsg) reject(new Error(doneMsg.error || 'Upload echoue'));
+          else reject(new Error('Reponse serveur invalide'));
+        } catch { reject(new Error('Reponse serveur invalide')); }
+      };
+      xhr.onerror = () => reject(new Error('Erreur reseau'));
+      xhr.send(formData);
+    });
+  }
 
-      progressSection.style.display = 'none';
-      uploadForm.style.display = 'none';
+  // ---- Form submit ----
+  uploadForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (selectedFiles.length === 0) return;
 
+    uploadError.style.display = 'none';
+    uploadBtn.disabled = true;
+    progressSection.style.display = 'block';
+    progressFill.style.width = '0%';
+
+    try {
       if (currentMode === 'revision') {
+        // Revision mode: single request with all files (unchanged)
+        uploadBtn.textContent = 'Upload en cours...';
+        progressText.textContent = 'Envoi en cours...';
+        const { url, formData } = submitRevision();
+        const result = await uploadSingleFile(url, formData, '');
+
+        progressSection.style.display = 'none';
+        uploadForm.style.display = 'none';
         const names = result.assets.map(a => a.name).join(', ');
         successTitle.textContent = 'Upload reussi !';
         successMsg.textContent = names + (result.assets.length > 1 ? ' ont ete uploades avec succes.' : ' a ete uploade avec succes.');
         shareLink.href = result.shareLink;
         shareLink.textContent = 'Voir et commenter sur Frame.io';
         shareLink.style.display = '';
+        successPanel.style.display = 'flex';
+
       } else {
-        successTitle.textContent = 'Mise en ligne lancee !';
-        successMsg.textContent = result.asset.name + ' a ete envoye. Le workflow N8N va creer le brouillon Metricool.';
-        if (result.shareLink) {
-          shareLink.href = result.shareLink;
+        // Publish mode: send each file sequentially with 30s delay
+        const total = selectedFiles.length;
+        const brandName = brandSelect.value;
+        const projectId = publishClientSelect.value || '';
+        const week = publishWeekSelect.value;
+        const comment = commentInput.value.trim();
+        const results = [];
+
+        uploadBtn.textContent = 'Mise en ligne en cours...';
+
+        for (let i = 0; i < total; i++) {
+          const file = selectedFiles[i];
+          const fileLabel = total > 1 ? '(' + (i + 1) + '/' + total + ') ' + file.name : file.name;
+
+          // Wait 30s between files (not before the first one)
+          if (i > 0) {
+            for (let sec = 30; sec > 0; sec--) {
+              progressText.textContent = fileLabel + ' — Envoi dans ' + sec + 's (synchronisation N8N)...';
+              progressFill.style.width = '0%';
+              await new Promise(r => setTimeout(r, 1000));
+            }
+          }
+
+          progressText.textContent = fileLabel + ' — Envoi en cours...';
+          progressFill.style.width = '0%';
+
+          const formData = new FormData();
+          formData.append('video', file);
+          formData.append('brandName', brandName);
+          formData.append('projectId', projectId);
+          formData.append('week', week);
+          formData.append('comment', comment);
+          // Match transcription by filename (e.g. video.mov → video.txt)
+          const matchedTranscription = findMatchingTranscription(file);
+          if (matchedTranscription) {
+            formData.append('transcription', matchedTranscription);
+          } else if (transcriptionFile) {
+            // Fallback: single transcription from legacy input (first file only)
+            if (i === 0) formData.append('transcription', transcriptionFile);
+          }
+
+          const result = await uploadSingleFile('/api/publish', formData, fileLabel);
+          results.push(result);
+        }
+
+        progressSection.style.display = 'none';
+        uploadForm.style.display = 'none';
+        const names = results.map(r => r.asset.name).join(', ');
+        successTitle.textContent = total > 1 ? total + ' fichiers mis en ligne !' : 'Mise en ligne lancee !';
+        successMsg.textContent = names + ' — Les brouillons Metricool vont etre crees par N8N.';
+        if (results[0].shareLink) {
+          shareLink.href = results[0].shareLink;
           shareLink.textContent = 'Voir sur Frame.io';
           shareLink.style.display = '';
         } else {
           shareLink.style.display = 'none';
         }
+        successPanel.style.display = 'flex';
       }
-
-      successPanel.style.display = 'flex';
 
     } catch (err) {
       progressSection.style.display = 'none';

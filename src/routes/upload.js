@@ -27,12 +27,19 @@ const storage = multer.diskStorage({
 // ---- Multer for publish mode (storage/temp, kept for 14 days) ----
 const publishStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    // Create a unique subdirectory per upload
-    const uid = crypto.randomBytes(8).toString('hex');
-    const dir = path.join(STORAGE_DIR, uid);
-    fs.mkdirSync(dir, { recursive: true });
-    req._storageUid = uid;
-    cb(null, dir);
+    // Only create a unique subdirectory for the video file, not transcription
+    if (file.fieldname === 'video') {
+      const uid = crypto.randomBytes(8).toString('hex');
+      const dir = path.join(STORAGE_DIR, uid);
+      fs.mkdirSync(dir, { recursive: true });
+      req._storageUid = uid;
+      cb(null, dir);
+    } else {
+      // Transcription goes to /app/uploads (temporary, deleted after read)
+      const uploadsDir = path.join(__dirname, '..', '..', 'uploads');
+      fs.mkdirSync(uploadsDir, { recursive: true });
+      cb(null, uploadsDir);
+    }
   },
   filename: (req, file, cb) => {
     // Keep original filename (NFC normalized)
